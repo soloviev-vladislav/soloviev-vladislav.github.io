@@ -618,27 +618,74 @@
          * Отправка данных формы на вебхук
          */
         async function submitForm(formData) {
+    try {
+        console.log('Отправка данных в n8n:', formData);
+        
+        // Формируем параметры URL
+        const params = new URLSearchParams();
+        params.append('action', 'search');
+        params.append('vacancy', formData.vacancy);
+        params.append('search_in', formData.search_in.join(','));
+        
+        if (formData.professional_roles && formData.professional_roles.length > 0) {
+            params.append('professional_roles', formData.professional_roles.join(','));
+        }
+        
+        if (formData.areas && formData.areas.length > 0) {
+            params.append('areas', formData.areas.join(','));
+        }
+        
+        if (formData.industries && formData.industries.length > 0) {
+            params.append('industries', formData.industries.join(','));
+        }
+        
+        if (formData.limit) {
+            params.append('limit', formData.limit);
+        }
+        
+        const targetUrl = N8N_WEBHOOK_URL + '?' + params.toString();
+        console.log('Запрос:', targetUrl);
+        
+        // Пробуем разные прокси
+        const proxies = [
+            'https://api.allorigins.win/raw?url=',
+            'https://corsproxy.io/?',
+            'https://api.codetabs.com/v1/proxy?quest='
+        ];
+        
+        for (let proxy of proxies) {
             try {
-                const response = await fetch(WEBHOOK_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(formData)
+                const proxiedUrl = proxy + encodeURIComponent(targetUrl);
+                console.log('Пробую прокси:', proxy);
+                
+                const response = await fetch(proxiedUrl, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    signal: AbortSignal.timeout(15000) // 15 секунд таймаут
                 });
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Успешно получены данные через прокси:', proxy);
+                    console.log('Данные:', data);
+                    
+                    // Отображаем результаты
+                    displayResults(data);
+                    return;
                 }
-                
-                const data = await response.json();
-                return data;
-                
-            } catch (error) {
-                console.error('Ошибка при отправке формы:', error);
-                throw new Error('Не удалось отправить запрос. Проверьте подключение к интернету.');
+            } catch (proxyError) {
+                console.log('Прокси не сработал:', proxy, proxyError.message);
+                continue;
             }
         }
+        
+        throw new Error('Не удалось подключиться к n8n через прокси');
+        
+    } catch (error) {
+        console.error('Ошибка при отправке в n8n:', error);
+        showError(`Ошибка: ${error.message}. Проверьте подключение к n8n.`);
+    }
+}
         
         /**
          * Опрос результатов (Long Polling)
@@ -697,85 +744,99 @@
          * @param {Array} results - Массив с данными компаний
          */
         function displayResults(results) {
-            hideLoading();
-            
-            const container = document.getElementById('resultsContainer');
-            
-            if (!results || results.length === 0) {
-                container.innerHTML = `
-                    <div class="col-span-full text-center py-10">
-                        <i class="fas fa-search text-4xl text-gray-300 mb-4"></i>
-                        <h3 class="text-gray-700 font-semibold text-lg mb-2">Ничего не найдено</h3>
-                        <p class="text-gray-500">Попробуйте изменить параметры поиска</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            // Очищаем контейнер
-            container.innerHTML = '';
-            
-            // Создаем карточки для каждой компании
-            results.forEach(company => {
-                const card = document.createElement('div');
-                card.className = 'bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300';
+    hideLoading();
+    
+    const container = document.getElementById('resultsContainer');
+    const resultsCount = document.getElementById('resultsCount');
+    
+    // Проверяем разные форматы ответа
+    let resultsArray = [];
+    
+    if (Array.isArray(results)) {
+        // Формат 1: Просто массив [ {...}, {...} ]
+        resultsArray = results;
+    } else if (results && Array.isArray(results.data)) {
+        // Формат 2: { data: [ {...}, {...} ] }
+        resultsArray = results.data;
+    } else if (results && results.requestId) {
+        // Формат 3: { requestId: "...", data: [...] } (старый формат)
+        resultsArray = results.data || [];
+    } else {
+        // Неизвестный формат
+        console.error('Неизвестный формат ответа:', results);
+        showError('Некорректный формат ответа от сервера');
+        return;
+    }
+    
+    // Если нет результатов
+    if (resultsArray.length === 0) {
+        container.innerHTML = `
+            <div class="col-span-full text-center py-10">
+                <i class="fas fa-search text-4xl text-gray-300 mb-4"></i>
+                <h3 class="text-gray-700 font-semibold text-lg mb-2">Ничего не найдено</h3>
+                <p class="text-gray-500">Попробуйте изменить параметры поиска</p>
+            </div>
+        `;
+        resultsCount.classList.add('hidden');
+        return;
+    }
+    
+    // Очищаем контейнер
+    container.innerHTML = '';
+    
+    // Создаем карточки
+    resultsArray.forEach(company => {
+        const card = document.createElement('div');
+        card.className = 'company-card bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300';
+        
+        const name = company.name || 'Название не указано';
+        const website = company.site || company.website || '';
+        const inn = company.inn || company.tax_id || 'Не указан';
+        const hhLink = company.vacancy || company.url || company.hh_link || '';
+        
+        card.innerHTML = `
+            <div class="p-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-3 truncate">${name}</h3>
                 
-                // Формируем содержимое карточки
-                card.innerHTML = `
-                    <div class="p-6">
-                        <h3 class="text-xl font-bold text-gray-800 mb-3 truncate">${company.name || 'Название не указано'}</h3>
-                        
-                        <div class="space-y-3">
-                            ${company.website ? `
-                            <div class="flex items-start">
-                                <span class="font-medium text-gray-700 min-w-[80px]">Сайт:</span>
-                                <a href="${company.website}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline truncate">
-                                    ${company.website.replace(/^https?:\/\//, '')}
-                                </a>
-                            </div>
-                            ` : ''}
-                            
-                            ${company.inn ? `
-                            <div class="flex items-start">
-                                <span class="font-medium text-gray-700 min-w-[80px]">ИНН:</span>
-                                <span class="text-gray-600">${company.inn}</span>
-                            </div>
-                            ` : ''}
-                            
-                            ${company.hh_link ? `
-                            <div class="flex items-start">
-                                <span class="font-medium text-gray-700 min-w-[80px]">HH.ru:</span>
-                                <a href="${company.hh_link}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline truncate">
-                                    Ссылка на вакансию
-                                </a>
-                            </div>
-                            ` : ''}
-                            
-                            ${company.vacancy_count ? `
-                            <div class="flex items-start">
-                                <span class="font-medium text-gray-700 min-w-[80px]">Вакансий:</span>
-                                <span class="text-gray-600">${company.vacancy_count}</span>
-                            </div>
-                            ` : ''}
-                            
-                            ${company.description ? `
-                            <div class="mt-4 pt-4 border-t border-gray-100">
-                                <p class="text-gray-600 text-sm line-clamp-3">${company.description}</p>
-                            </div>
-                            ` : ''}
-                        </div>
+                <div class="space-y-3">
+                    <div class="flex items-start">
+                        <span class="font-medium text-gray-700 min-w-[60px]">ИНН:</span>
+                        <span class="text-gray-900 font-mono">${inn}</span>
                     </div>
-                `;
-                
-                container.appendChild(card);
-            });
-            
-            // Показываем количество найденных компаний
-            const countElement = document.createElement('div');
-            countElement.className = 'col-span-full mb-4 text-gray-600';
-            countElement.innerHTML = `<p>Найдено компаний: <span class="font-semibold">${results.length}</span></p>`;
-            container.insertBefore(countElement, container.firstChild);
-        }
+                    
+                    ${website && website !== 'http://' ? `
+                    <div class="flex items-start">
+                        <span class="font-medium text-gray-700 min-w-[60px]">Сайт:</span>
+                        <a href="${website}" target="_blank" rel="noopener noreferrer" 
+                           class="text-blue-600 hover:text-blue-800 hover:underline truncate flex-1">
+                            ${website.replace(/^https?:\/\//, '').replace(/^http:\/\//, '')}
+                        </a>
+                    </div>
+                    ` : ''}
+                    
+                    ${hhLink ? `
+                    <div class="flex items-start">
+                        <span class="font-medium text-gray-700 min-w-[60px]">HH.ru:</span>
+                        <a href="${hhLink}" target="_blank" rel="noopener noreferrer" 
+                           class="text-blue-600 hover:text-blue-800 hover:underline truncate flex-1">
+                            Открыть вакансию
+                        </a>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(card);
+    });
+    
+    // Показываем количество результатов
+    resultsCount.classList.remove('hidden');
+    resultsCount.innerHTML = `Найдено компаний: <span class="font-semibold text-blue-600">${resultsArray.length}</span>`;
+    
+    // Прокручиваем к результатам
+    resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
         
         // ============================================================================
         // ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
