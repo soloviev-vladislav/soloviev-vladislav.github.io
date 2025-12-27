@@ -307,17 +307,227 @@
         // URL вашего n8n вебхука - ОБЯЗАТЕЛЬНО ДОБАВЬ ЭТО!
         const N8N_WEBHOOK_URL = 'https://n8n.pipegun.ru/webhook-test/voronka';
         
+        // API HH.ru для автокомплита
+        const HH_API = {
+            professional_roles: 'https://api.hh.ru/professional_roles',
+            areas: 'https://api.hh.ru/areas',
+            industries: 'https://api.hh.ru/industries'
+        };
+        
         // Использовать ли демо-режим (true - если n8n не отвечает)
         const USE_DEMO_MODE = false;
         
         // ============================================================================
-        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ДЛЯ АВТОКОМПЛИТА
         // ============================================================================
+        
+        let autocompleteData = {
+            professional_roles: [],
+            areas: [],
+            industries: []
+        };
         
         let selectedValues = {
             professional_roles: new Map(),
             areas: new Map(),
             industries: new Map()
+        };
+        
+        let debounceTimers = {};
+        
+        // ============================================================================
+        // ФУНКЦИИ АВТОКОМПЛИТА
+        // ============================================================================
+        
+        function setupAutocomplete(inputId, dropdownId, tagsContainerId, hiddenInputId, apiEndpoint, dataMapper) {
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            const tagsContainer = document.getElementById(tagsContainerId);
+            const hiddenInput = document.getElementById(hiddenInputId);
+            const type = hiddenInputId;
+            
+            input.addEventListener('input', function() {
+                const query = this.value.trim();
+                
+                if (debounceTimers[inputId]) {
+                    clearTimeout(debounceTimers[inputId]);
+                }
+                
+                if (query.length < 2) {
+                    dropdown.classList.add('hidden');
+                    return;
+                }
+                
+                debounceTimers[inputId] = setTimeout(async () => {
+                    try {
+                        dropdown.innerHTML = '<div class="autocomplete-item">Загрузка...</div>';
+                        dropdown.classList.remove('hidden');
+                        
+                        const response = await fetch(HH_API[apiEndpoint]);
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        
+                        const data = await response.json();
+                        autocompleteData[type] = dataMapper(data);
+                        
+                        const filtered = autocompleteData[type].filter(item => 
+                            item.text.toLowerCase().includes(query.toLowerCase())
+                        );
+                        
+                        dropdown.innerHTML = '';
+                        
+                        if (filtered.length === 0) {
+                            const noResults = document.createElement('div');
+                            noResults.className = 'autocomplete-item text-gray-500';
+                            noResults.textContent = 'Ничего не найдено';
+                            dropdown.appendChild(noResults);
+                            return;
+                        }
+                        
+                        filtered.slice(0, 10).forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'autocomplete-item';
+                            div.textContent = item.text;
+                            div.dataset.id = item.id;
+                            div.dataset.text = item.text;
+                            
+                            div.addEventListener('click', () => {
+                                addTag(item.id, item.text, type, tagsContainer, hiddenInput);
+                                input.value = '';
+                                dropdown.classList.add('hidden');
+                            });
+                            
+                            dropdown.appendChild(div);
+                        });
+                        
+                    } catch (error) {
+                        console.error(`Ошибка при загрузке данных для ${type}:`, error);
+                        dropdown.innerHTML = '<div class="autocomplete-item text-red-500">Ошибка загрузки данных</div>';
+                    }
+                }, 300);
+            });
+            
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+            
+            input.addEventListener('focus', function() {
+                if (this.value) {
+                    const query = this.value.trim();
+                    if (query.length >= 2 && autocompleteData[type].length > 0) {
+                        const filtered = autocompleteData[type].filter(item => 
+                            item.text.toLowerCase().includes(query.toLowerCase())
+                        );
+                        
+                        if (filtered.length > 0) {
+                            dropdown.innerHTML = '';
+                            filtered.slice(0, 10).forEach(item => {
+                                const div = document.createElement('div');
+                                div.className = 'autocomplete-item';
+                                div.textContent = item.text;
+                                div.dataset.id = item.id;
+                                div.dataset.text = item.text;
+                                
+                                div.addEventListener('click', () => {
+                                    addTag(item.id, item.text, type, tagsContainer, hiddenInput);
+                                    input.value = '';
+                                    dropdown.classList.add('hidden');
+                                });
+                                
+                                dropdown.appendChild(div);
+                            });
+                            dropdown.classList.remove('hidden');
+                        }
+                    }
+                }
+            });
+        }
+        
+        function addTag(id, text, type, tagsContainer, hiddenInput) {
+            if (selectedValues[type].has(id)) {
+                return;
+            }
+            
+            selectedValues[type].set(id, { id, text });
+            updateHiddenInput(type, hiddenInput);
+            
+            const tag = document.createElement('div');
+            tag.className = 'tag';
+            tag.innerHTML = `
+                ${text}
+                <span class="tag-remove" data-id="${id}">&times;</span>
+            `;
+            
+            const removeBtn = tag.querySelector('.tag-remove');
+            removeBtn.addEventListener('click', () => {
+                removeTag(id, type, tag, hiddenInput);
+            });
+            
+            tagsContainer.appendChild(tag);
+        }
+        
+        function removeTag(id, type, tagElement, hiddenInput) {
+            selectedValues[type].delete(id);
+            tagElement.remove();
+            updateHiddenInput(type, hiddenInput);
+        }
+        
+        function updateHiddenInput(type, hiddenInput) {
+            const ids = Array.from(selectedValues[type].keys());
+            hiddenInput.value = ids.join(',');
+        }
+        
+        // Мапперы для данных HH API
+        const dataMappers = {
+            professional_roles: (data) => {
+                const items = [];
+                data.categories.forEach(category => {
+                    category.roles.forEach(role => {
+                        items.push({
+                            id: role.id,
+                            text: role.name
+                        });
+                    });
+                });
+                return items;
+            },
+            
+            areas: (data) => {
+                const items = [];
+                
+                function processArea(area, path = '') {
+                    const currentPath = path ? `${path} → ${area.name}` : area.name;
+                    items.push({
+                        id: area.id,
+                        text: currentPath
+                    });
+                    
+                    if (area.areas && area.areas.length > 0) {
+                        area.areas.forEach(child => {
+                            processArea(child, currentPath);
+                        });
+                    }
+                }
+                
+                const russia = data.find(area => area.name === 'Россия');
+                if (russia) {
+                    processArea(russia);
+                } else {
+                    data.forEach(area => {
+                        processArea(area);
+                    });
+                }
+                
+                return items;
+            },
+            
+            industries: (data) => {
+                return data.map(industry => ({
+                    id: industry.id,
+                    text: industry.name
+                }));
+            }
         };
         
         // ============================================================================
@@ -586,6 +796,34 @@
             console.log('Voronka.hh инициализирован');
             console.log('N8N URL:', N8N_WEBHOOK_URL);
             
+            // ИНИЦИАЛИЗАЦИЯ АВТОКОМПЛИТОВ
+            setupAutocomplete(
+                'professional_roles_input',
+                'professional_roles_dropdown',
+                'professional_roles_tags',
+                'professional_roles',
+                'professional_roles',
+                dataMappers.professional_roles
+            );
+            
+            setupAutocomplete(
+                'areas_input',
+                'areas_dropdown',
+                'areas_tags',
+                'areas',
+                'areas',
+                dataMappers.areas
+            );
+            
+            setupAutocomplete(
+                'industries_input',
+                'industries_dropdown',
+                'industries_tags',
+                'industries',
+                'industries',
+                dataMappers.industries
+            );
+            
             // Обработчик отправки формы
             document.getElementById('searchForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
@@ -595,6 +833,18 @@
                     vacancy: document.getElementById('vacancy').value.trim(),
                     search_in: Array.from(document.querySelectorAll('input[name="search_in"]:checked'))
                         .map(checkbox => checkbox.value),
+                    professional_roles: document.getElementById('professional_roles').value
+                        .split(',')
+                        .filter(id => id !== '')
+                        .map(id => parseInt(id)),
+                    areas: document.getElementById('areas').value
+                        .split(',')
+                        .filter(id => id !== '')
+                        .map(id => parseInt(id)),
+                    industries: document.getElementById('industries').value
+                        .split(',')
+                        .filter(id => id !== '')
+                        .map(id => parseInt(id)),
                     limit: document.getElementById('limit').value || 50
                 };
                 
@@ -626,11 +876,6 @@
                     document.getElementById('demoHint').classList.remove('hidden');
                 }, 1000);
             });
-            
-            // Автоматический поиск при загрузке (опционально)
-            // setTimeout(() => {
-            //     document.getElementById('searchForm').dispatchEvent(new Event('submit'));
-            // }, 500);
         });
         
         // ============================================================================
@@ -671,6 +916,15 @@
             `;
             document.getElementById('resultsCount').classList.add('hidden');
             document.getElementById('demoHint').classList.add('hidden');
+        };
+        
+        window.clearTags = function() {
+            // Очистка тегов
+            ['professional_roles', 'areas', 'industries'].forEach(type => {
+                selectedValues[type].clear();
+                document.getElementById(`${type}_tags`).innerHTML = '';
+                document.getElementById(type).value = '';
+            });
         };
     </script>
 </body>
