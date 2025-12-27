@@ -4,322 +4,140 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Voronka.hh - Воронка HH</title>
-    
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <style>
-        .autocomplete-dropdown {
-            position: absolute;
-            z-index: 1000;
-            max-height: 200px;
-            overflow-y: auto;
-            background: white;
-            border: 1px solid #d1d5db;
-            border-radius: 0.375rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            width: 100%;
-        }
-        
-        .autocomplete-item {
-            padding: 0.5rem 1rem;
-            cursor: pointer;
-        }
-        
-        .autocomplete-item:hover {
-            background-color: #f3f4f6;
-        }
-        
-        .tag {
-            display: inline-flex;
-            align-items: center;
-            background-color: #e0f2fe;
-            color: #0369a1;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            margin: 0.25rem;
-            font-size: 0.875rem;
-        }
-        
-        .tag-remove {
-            margin-left: 0.5rem;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-radius: 50%;
-            border-top: 4px solid #3F7FBF;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .company-card {
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        
-        .company-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-        }
+        .autocomplete-dropdown { position: absolute; z-index: 1000; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #d1d5db; border-radius: 0.375rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); width: 100%; }
+        .autocomplete-item { padding: 0.5rem 1rem; cursor: pointer; }
+        .autocomplete-item:hover { background-color: #f3f4f6; }
+        .tag { display: inline-flex; align-items: center; background-color: #e0f2fe; color: #0369a1; padding: 0.25rem 0.75rem; border-radius: 9999px; margin: 0.25rem; font-size: 0.875rem; }
+        .tag-remove { margin-left: 0.5rem; cursor: pointer; font-weight: bold; }
+        .spinner { border: 4px solid rgba(0, 0, 0, 0.1); border-radius: 50%; border-top: 4px solid #3F7FBF; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .company-card { transition: transform 0.2s, box-shadow 0.2s; }
+        .company-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); }
     </style>
 </head>
 <body class="bg-gray-50 font-sans min-h-screen">
     <div class="container mx-auto px-4 py-8">
-        <!-- Шапка -->
         <header class="text-center mb-10">
             <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Воронка HH</h1>
             <p class="text-gray-600 mt-2">Поиск компаний по вакансиям с HeadHunter</p>
-            <p class="text-sm text-gray-500 mt-1">Размещено на GitHub Pages | Интеграция с n8n</p>
         </header>
 
-        <!-- Основной блок с формой -->
         <main class="max-w-4xl mx-auto">
-            <!-- Карточка формы -->
             <div class="bg-white rounded-xl shadow-md p-6 mb-10">
                 <h2 class="text-xl font-semibold text-gray-800 mb-6">Параметры поиска</h2>
                 
                 <form id="searchForm">
-                    <!-- Поле Вакансия -->
                     <div class="mb-6">
                         <label for="vacancy" class="block text-gray-700 font-medium mb-2">Вакансия *</label>
-                        <input 
-                            type="text" 
-                            id="vacancy" 
-                            name="vacancy"
-                            placeholder="Например, бухгалтер" 
-                            required
+                        <input type="text" id="vacancy" name="vacancy" placeholder="Например, бухгалтер" required
                             class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition"
-                            value="бухгалтер"
-                        >
-                        <p class="text-gray-500 text-sm mt-1">Обязательное поле для поиска</p>
+                            value="бухгалтер">
                     </div>
                     
-                    <!-- Чекбоксы "Где искать" -->
                     <div class="mb-6">
                         <p class="block text-gray-700 font-medium mb-2">Искать в:</p>
                         <div class="flex flex-col md:flex-row gap-3">
                             <label class="inline-flex items-center">
-                                <input 
-                                    type="checkbox" 
-                                    id="search_in_name" 
-                                    name="search_in" 
-                                    value="name"
-                                    checked
-                                    class="rounded text-blue-600 focus:ring-blue-500"
-                                >
+                                <input type="checkbox" id="search_in_name" name="search_in" value="name" checked class="rounded text-blue-600 focus:ring-blue-500">
                                 <span class="ml-2 text-gray-700">Название вакансии</span>
                             </label>
                             <label class="inline-flex items-center">
-                                <input 
-                                    type="checkbox" 
-                                    id="search_in_company" 
-                                    name="search_in" 
-                                    value="company"
-                                    class="rounded text-blue-600 focus:ring-blue-500"
-                                >
+                                <input type="checkbox" id="search_in_company" name="search_in" value="company" class="rounded text-blue-600 focus:ring-blue-500">
                                 <span class="ml-2 text-gray-700">Название компании</span>
-                            </label>
-                            <label class="inline-flex items-center">
-                                <input 
-                                    type="checkbox" 
-                                    id="search_in_description" 
-                                    name="search_in" 
-                                    value="description"
-                                    class="rounded text-blue-600 focus:ring-blue-500"
-                                >
-                                <span class="ml-2 text-gray-700">Описание вакансии</span>
                             </label>
                         </div>
                     </div>
                     
-                    <!-- Поле Роль с автокомплитом -->
                     <div class="mb-6">
-                        <label for="professional_roles_input" class="block text-gray-700 font-medium mb-2">Роль (необязательно)</label>
+                        <label for="professional_roles_input" class="block text-gray-700 font-medium mb-2">Роль</label>
                         <div class="relative">
-                            <input 
-                                type="text" 
-                                id="professional_roles_input"
-                                placeholder="Начните вводить роль, например, Финансы" 
-                                autocomplete="off"
-                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition"
-                            >
+                            <input type="text" id="professional_roles_input" placeholder="Начните вводить роль" autocomplete="off"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition">
                             <div id="professional_roles_dropdown" class="autocomplete-dropdown hidden"></div>
                         </div>
                         <div id="professional_roles_tags" class="mt-3 flex flex-wrap"></div>
                         <input type="hidden" id="professional_roles" name="professional_roles">
                     </div>
                     
-                    <!-- Поле Регион с автокомплитом -->
                     <div class="mb-6">
-                        <label for="areas_input" class="block text-gray-700 font-medium mb-2">Регион (необязательно)</label>
+                        <label for="areas_input" class="block text-gray-700 font-medium mb-2">Регион</label>
                         <div class="relative">
-                            <input 
-                                type="text" 
-                                id="areas_input"
-                                placeholder="Начните вводить регион, например, Москва" 
-                                autocomplete="off"
-                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition"
-                            >
+                            <input type="text" id="areas_input" placeholder="Начните вводить регион" autocomplete="off"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition">
                             <div id="areas_dropdown" class="autocomplete-dropdown hidden"></div>
                         </div>
                         <div id="areas_tags" class="mt-3 flex flex-wrap"></div>
                         <input type="hidden" id="areas" name="areas">
                     </div>
                     
-                    <!-- Поле Вид деятельности с автокомплитом -->
                     <div class="mb-6">
-                        <label for="industries_input" class="block text-gray-700 font-medium mb-2">Вид деятельности (необязательно)</label>
+                        <label for="industries_input" class="block text-gray-700 font-medium mb-2">Вид деятельности</label>
                         <div class="relative">
-                            <input 
-                                type="text" 
-                                id="industries_input"
-                                placeholder="Начните вводить вид деятельности, например, IT" 
-                                autocomplete="off"
-                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition"
-                            >
+                            <input type="text" id="industries_input" placeholder="Начните вводить вид деятельности" autocomplete="off"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition">
                             <div id="industries_dropdown" class="autocomplete-dropdown hidden"></div>
                         </div>
                         <div id="industries_tags" class="mt-3 flex flex-wrap"></div>
                         <input type="hidden" id="industries" name="industries">
                     </div>
                     
-                    <!-- Поле Ограничить выдачу -->
                     <div class="mb-8">
                         <label for="limit" class="block text-gray-700 font-medium mb-2">Ограничить выдачу</label>
-                        <input 
-                            type="number" 
-                            id="limit" 
-                            name="limit"
-                            placeholder="Например, 50" 
-                            min="1" 
-                            max="2000"
+                        <input type="number" id="limit" name="limit" placeholder="Например, 50" min="1" max="2000"
                             class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition"
-                            value="50"
-                        >
-                        <p class="text-gray-500 text-sm mt-1">Максимальное количество результатов (от 1 до 2000)</p>
+                            value="50">
                     </div>
                     
-                    <!-- Кнопка отправки -->
                     <div class="text-center">
-                        <button 
-                            type="submit" 
-                            id="submitBtn"
-                            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-lg transition duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                        >
+                        <button type="submit" id="submitBtn"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-lg transition duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                             <i class="fas fa-search mr-2"></i> Найти компании
                         </button>
-                        <p class="text-gray-500 text-sm mt-3">
-                            <i class="fas fa-info-circle mr-1"></i>
-                            Используется n8n для обработки запросов
-                        </p>
                     </div>
                 </form>
             </div>
             
-            <!-- Область результатов -->
             <div class="mb-10">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-2xl font-bold text-gray-800">Результаты поиска</h2>
                     <span id="resultsCount" class="text-gray-600 hidden">Найдено: <span class="font-semibold">0</span></span>
                 </div>
                 
-                <!-- Блок с состоянием загрузки -->
                 <div id="loadingState" class="hidden text-center py-10">
                     <div class="spinner mx-auto mb-4"></div>
                     <p class="text-gray-700">Идет поиск компаний...</p>
-                    <p class="text-gray-500 text-sm mt-2">Это может занять несколько секунд</p>
-                    <div class="mt-4 text-xs text-gray-400">
-                        <i class="fas fa-sync-alt mr-1"></i>
-                        Запрос отправляется в n8n для обработки
-                    </div>
                 </div>
                 
-                <!-- Блок с сообщением об ошибке -->
                 <div id="errorState" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 text-center">
                     <i class="fas fa-exclamation-triangle text-red-500 text-3xl mb-4"></i>
                     <h3 class="text-red-700 font-semibold text-lg mb-2">Произошла ошибка</h3>
                     <p id="errorMessage" class="text-red-600 mb-4"></p>
-                    <div class="space-y-2">
-                        <button id="retryButton" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-6 rounded-lg transition">
-                            Попробовать снова
-                        </button>
-                        <button id="demoButton" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-6 rounded-lg transition ml-2">
-                            Показать демо-данные
-                        </button>
-                    </div>
+                    <button id="retryButton" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-6 rounded-lg transition">
+                        Попробовать снова
+                    </button>
                 </div>
                 
-                <!-- Контейнер для результатов -->
                 <div id="resultsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <!-- Карточки компаний будут добавляться сюда -->
                     <div class="col-span-full text-center text-gray-500 py-10">
                         <i class="fas fa-building text-4xl mb-4 opacity-30"></i>
                         <p class="text-lg mb-2">Здесь появятся результаты поиска</p>
-                        <p class="text-sm">Введите параметры поиска и нажмите "Найти компании"</p>
                     </div>
-                </div>
-                
-                <!-- Подсказка для демо -->
-                <div id="demoHint" class="hidden mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
-                    <p class="text-blue-700">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        Показаны демо-данные. Для работы с реальными данными проверьте настройки n8n.
-                    </p>
                 </div>
             </div>
         </main>
-        
-        <!-- Футер -->
-        <footer class="text-center text-gray-500 text-sm mt-12 pb-6 border-t border-gray-200 pt-6">
-            <div class="flex flex-col md:flex-row justify-center items-center gap-4">
-                <div>
-                    <p class="font-medium text-gray-700">Voronka.hh &copy; 2023</p>
-                    <p class="mt-1">Интеграция с API HH.ru через n8n</p>
-                </div>
-                <div class="h-4 w-px bg-gray-300 hidden md:block"></div>
-                <div>
-                    <p><i class="fas fa-server mr-1"></i> Backend: n8n</p>
-                    <p class="mt-1"><i class="fas fa-cloud mr-1"></i> Hosting: GitHub Pages</p>
-                </div>
-            </div>
-            <div class="mt-4 text-xs text-gray-400">
-                <p>Этот инструмент помогает найти компании по вакансиям с HeadHunter</p>
-            </div>
-        </footer>
     </div>
 
     <script>
-        // ============================================================================
         // КОНФИГУРАЦИЯ
-        // ============================================================================
-        
-        // URL вашего n8n вебхука - ОБЯЗАТЕЛЬНО ДОБАВЬ ЭТО!
         const N8N_WEBHOOK_URL = 'https://n8n.pipegun.ru/webhook-test/voronka';
-        
-        // API HH.ru для автокомплита
         const HH_API = {
             professional_roles: 'https://api.hh.ru/professional_roles',
             areas: 'https://api.hh.ru/areas',
             industries: 'https://api.hh.ru/industries'
         };
-        
-        // Использовать ли демо-режим (true - если n8n не отвечает)
-        const USE_DEMO_MODE = false;
-        
-        // ============================================================================
-        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ДЛЯ АВТОКОМПЛИТА
-        // ============================================================================
         
         let autocompleteData = {
             professional_roles: [],
@@ -335,10 +153,7 @@
         
         let debounceTimers = {};
         
-        // ============================================================================
         // ФУНКЦИИ АВТОКОМПЛИТА
-        // ============================================================================
-        
         function setupAutocomplete(inputId, dropdownId, tagsContainerId, hiddenInputId, apiEndpoint, dataMapper) {
             const input = document.getElementById(inputId);
             const dropdown = document.getElementById(dropdownId);
@@ -349,9 +164,7 @@
             input.addEventListener('input', function() {
                 const query = this.value.trim();
                 
-                if (debounceTimers[inputId]) {
-                    clearTimeout(debounceTimers[inputId]);
-                }
+                if (debounceTimers[inputId]) clearTimeout(debounceTimers[inputId]);
                 
                 if (query.length < 2) {
                     dropdown.classList.add('hidden');
@@ -400,8 +213,7 @@
                         });
                         
                     } catch (error) {
-                        console.error(`Ошибка при загрузке данных для ${type}:`, error);
-                        dropdown.innerHTML = '<div class="autocomplete-item text-red-500">Ошибка загрузки данных</div>';
+                        dropdown.innerHTML = '<div class="autocomplete-item text-red-500">Ошибка загрузки</div>';
                     }
                 }, 300);
             });
@@ -411,56 +223,19 @@
                     dropdown.classList.add('hidden');
                 }
             });
-            
-            input.addEventListener('focus', function() {
-                if (this.value) {
-                    const query = this.value.trim();
-                    if (query.length >= 2 && autocompleteData[type].length > 0) {
-                        const filtered = autocompleteData[type].filter(item => 
-                            item.text.toLowerCase().includes(query.toLowerCase())
-                        );
-                        
-                        if (filtered.length > 0) {
-                            dropdown.innerHTML = '';
-                            filtered.slice(0, 10).forEach(item => {
-                                const div = document.createElement('div');
-                                div.className = 'autocomplete-item';
-                                div.textContent = item.text;
-                                div.dataset.id = item.id;
-                                div.dataset.text = item.text;
-                                
-                                div.addEventListener('click', () => {
-                                    addTag(item.id, item.text, type, tagsContainer, hiddenInput);
-                                    input.value = '';
-                                    dropdown.classList.add('hidden');
-                                });
-                                
-                                dropdown.appendChild(div);
-                            });
-                            dropdown.classList.remove('hidden');
-                        }
-                    }
-                }
-            });
         }
         
         function addTag(id, text, type, tagsContainer, hiddenInput) {
-            if (selectedValues[type].has(id)) {
-                return;
-            }
+            if (selectedValues[type].has(id)) return;
             
             selectedValues[type].set(id, { id, text });
             updateHiddenInput(type, hiddenInput);
             
             const tag = document.createElement('div');
             tag.className = 'tag';
-            tag.innerHTML = `
-                ${text}
-                <span class="tag-remove" data-id="${id}">&times;</span>
-            `;
+            tag.innerHTML = `${text}<span class="tag-remove" data-id="${id}">&times;</span>`;
             
-            const removeBtn = tag.querySelector('.tag-remove');
-            removeBtn.addEventListener('click', () => {
+            tag.querySelector('.tag-remove').addEventListener('click', () => {
                 removeTag(id, type, tag, hiddenInput);
             });
             
@@ -478,78 +253,41 @@
             hiddenInput.value = ids.join(',');
         }
         
-        // Мапперы для данных HH API
         const dataMappers = {
             professional_roles: (data) => {
                 const items = [];
                 data.categories.forEach(category => {
                     category.roles.forEach(role => {
-                        items.push({
-                            id: role.id,
-                            text: role.name
-                        });
+                        items.push({ id: role.id, text: role.name });
                     });
                 });
                 return items;
             },
-            
             areas: (data) => {
                 const items = [];
-                
                 function processArea(area, path = '') {
                     const currentPath = path ? `${path} → ${area.name}` : area.name;
-                    items.push({
-                        id: area.id,
-                        text: currentPath
-                    });
-                    
-                    if (area.areas && area.areas.length > 0) {
-                        area.areas.forEach(child => {
-                            processArea(child, currentPath);
-                        });
-                    }
+                    items.push({ id: area.id, text: currentPath });
+                    if (area.areas) area.areas.forEach(child => processArea(child, currentPath));
                 }
-                
-                const russia = data.find(area => area.name === 'Россия');
-                if (russia) {
-                    processArea(russia);
-                } else {
-                    data.forEach(area => {
-                        processArea(area);
-                    });
-                }
-                
+                data.forEach(area => processArea(area));
                 return items;
             },
-            
-            industries: (data) => {
-                return data.map(industry => ({
-                    id: industry.id,
-                    text: industry.name
-                }));
-            }
+            industries: (data) => data.map(industry => ({ id: industry.id, text: industry.name }))
         };
         
-        // ============================================================================
         // ОСНОВНЫЕ ФУНКЦИИ
-        // ============================================================================
-        
         function showLoading() {
             document.getElementById('loadingState').classList.remove('hidden');
             document.getElementById('errorState').classList.add('hidden');
             document.getElementById('resultsContainer').innerHTML = '';
             document.getElementById('resultsCount').classList.add('hidden');
-            document.getElementById('demoHint').classList.add('hidden');
-            
-            // Блокируем форму
             document.getElementById('submitBtn').disabled = true;
             document.getElementById('submitBtn').innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Идет поиск...';
         }
         
         function hideLoading() {
             document.getElementById('loadingState').classList.add('hidden');
-            
-            // Разблокируем форму
             document.getElementById('submitBtn').disabled = false;
             document.getElementById('submitBtn').innerHTML = '<i class="fas fa-search mr-2"></i> Найти компании';
         }
@@ -560,29 +298,24 @@
             document.getElementById('errorMessage').textContent = message;
         }
         
-        // ============================================================================
-        // ФУНКЦИИ ДЛЯ РАБОТЫ С N8N
-        // ============================================================================
-        
+        // ОТПРАВКА ФОРМЫ (БЕЗ ПРОКСИ!)
         async function submitForm(formData) {
             try {
-                console.log('Отправка данных в n8n:', formData);
+                console.log('Отправка данных:', formData);
                 
-                // Формируем параметры URL
                 const params = new URLSearchParams();
-                params.append('action', 'search');
                 params.append('vacancy', formData.vacancy);
                 params.append('search_in', formData.search_in.join(','));
                 
-                if (formData.professional_roles && formData.professional_roles.length > 0) {
+                if (formData.professional_roles.length > 0) {
                     params.append('professional_roles', formData.professional_roles.join(','));
                 }
                 
-                if (formData.areas && formData.areas.length > 0) {
+                if (formData.areas.length > 0) {
                     params.append('areas', formData.areas.join(','));
                 }
                 
-                if (formData.industries && formData.industries.length > 0) {
+                if (formData.industries.length > 0) {
                     params.append('industries', formData.industries.join(','));
                 }
                 
@@ -591,121 +324,56 @@
                 }
                 
                 const targetUrl = N8N_WEBHOOK_URL + '?' + params.toString();
-                console.log('Запрос:', targetUrl);
+                console.log('URL запроса:', targetUrl);
                 
-                // Пробуем разные прокси
-                const proxies = [
-                    'https://api.allorigins.win/raw?url=',
-                    'https://corsproxy.io/?',
-                    'https://api.codetabs.com/v1/proxy?quest='
-                ];
+                // ПРОСТОЙ FETCH БЕЗ ПРОКСИ
+                const response = await fetch(targetUrl, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
                 
-                for (let proxy of proxies) {
-                    try {
-                        const proxiedUrl = proxy + encodeURIComponent(targetUrl);
-                        console.log('Пробую прокси:', proxy);
-                        
-                        const response = await fetch(proxiedUrl, {
-                            method: 'GET',
-                            headers: { 'Accept': 'application/json' },
-                            signal: AbortSignal.timeout(15000) // 15 секунд таймаут
-                        });
-                        
-                        if (response.ok) {
-                            const data = await response.json();
-                            console.log('Успешно получены данные через прокси:', proxy);
-                            console.log('Данные:', data);
-                            
-                            // Отображаем результаты
-                            displayResults(data);
-                            return;
-                        }
-                    } catch (proxyError) {
-                        console.log('Прокси не сработал:', proxy, proxyError.message);
-                        continue;
-                    }
+                console.log('Статус ответа:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`Ошибка сервера: ${response.status}`);
                 }
                 
-                throw new Error('Не удалось подключиться к n8n через прокси');
+                const data = await response.json();
+                console.log('Получены данные:', data);
+                displayResults(data);
                 
             } catch (error) {
-                console.error('Ошибка при отправке в n8n:', error);
-                showError(`Ошибка: ${error.message}. Проверьте подключение к n8n.`);
+                console.error('Ошибка:', error);
+                showError(error.message);
             }
         }
         
-        // ============================================================================
-        // ДЕМО-РЕЖИМ
-        // ============================================================================
-        
-        function getDemoData() {
-            return [
-                {
-                    "name": "ЛОГОПАРК МЕНЕДЖМЕНТ",
-                    "site": "http://",
-                    "inn": "5040071960",
-                    "vacancy": "https://hh.ru/vacancy/129036565"
-                },
-                {
-                    "name": "ИЛС",
-                    "site": "http://www.interlogcon.com/ru/",
-                    "inn": "9716000590",
-                    "vacancy": "https://hh.ru/vacancy/129063006"
-                },
-                {
-                    "name": "ООО ДЕМО КОМПАНИЯ",
-                    "site": "https://demo-company.ru",
-                    "inn": "1234567890",
-                    "vacancy": "https://hh.ru/vacancy/123456789"
-                }
-            ];
-        }
-        
-        // ============================================================================
-        // ОТОБРАЖЕНИЕ РЕЗУЛЬТАТОВ
-        // ============================================================================
-        
         function displayResults(results) {
-            console.log('Получены результаты для отображения:', results);
-            
             hideLoading();
             
             const container = document.getElementById('resultsContainer');
             const resultsCount = document.getElementById('resultsCount');
             
-            // Проверяем разные форматы ответа
             let resultsArray = [];
-            
             if (Array.isArray(results)) {
-                // Формат 1: Просто массив [ {...}, {...} ]
                 resultsArray = results;
             } else if (results && Array.isArray(results.data)) {
-                // Формат 2: { data: [ {...}, {...} ] }
                 resultsArray = results.data;
-            } else {
-                // Неизвестный формат
-                console.error('Неизвестный формат ответа:', results);
-                showError('Некорректный формат ответа от сервера');
-                return;
             }
             
-            // Если нет результатов
-            if (resultsArray.length === 0) {
+            if (!resultsArray || resultsArray.length === 0) {
                 container.innerHTML = `
                     <div class="col-span-full text-center py-10">
                         <i class="fas fa-search text-4xl text-gray-300 mb-4"></i>
                         <h3 class="text-gray-700 font-semibold text-lg mb-2">Ничего не найдено</h3>
-                        <p class="text-gray-500">Попробуйте изменить параметры поиска</p>
                     </div>
                 `;
                 resultsCount.classList.add('hidden');
                 return;
             }
             
-            // Очищаем контейнер
             container.innerHTML = '';
             
-            // Создаем карточки
             resultsArray.forEach(company => {
                 const card = document.createElement('div');
                 card.className = 'company-card bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300';
@@ -714,22 +382,16 @@
                 const website = company.site || company.website || '';
                 const inn = company.inn || company.tax_id || 'Не указан';
                 const hhLink = company.vacancy || company.url || company.hh_link || '';
-                
-                // Проверяем, не пустой ли сайт
-                const displayWebsite = (website && website !== 'http://' && website !== 'https://') 
-                    ? website 
-                    : '';
+                const displayWebsite = (website && website !== 'http://' && website !== 'https://') ? website : '';
                 
                 card.innerHTML = `
                     <div class="p-6">
                         <h3 class="text-xl font-bold text-gray-800 mb-3 truncate">${name}</h3>
-                        
                         <div class="space-y-3">
                             <div class="flex items-start">
                                 <span class="font-medium text-gray-700 min-w-[60px]">ИНН:</span>
                                 <span class="text-gray-900 font-mono">${inn}</span>
                             </div>
-                            
                             ${displayWebsite ? `
                             <div class="flex items-start">
                                 <span class="font-medium text-gray-700 min-w-[60px]">Сайт:</span>
@@ -737,9 +399,7 @@
                                    class="text-blue-600 hover:text-blue-800 hover:underline truncate flex-1">
                                     ${displayWebsite.replace(/^https?:\/\//, '').replace(/^http:\/\//, '')}
                                 </a>
-                            </div>
-                            ` : ''}
-                            
+                            </div>` : ''}
                             ${hhLink ? `
                             <div class="flex items-start">
                                 <span class="font-medium text-gray-700 min-w-[60px]">HH.ru:</span>
@@ -747,8 +407,7 @@
                                    class="text-blue-600 hover:text-blue-800 hover:underline truncate flex-1">
                                     Открыть вакансию
                                 </a>
-                            </div>
-                            ` : ''}
+                            </div>` : ''}
                         </div>
                     </div>
                 `;
@@ -756,107 +415,44 @@
                 container.appendChild(card);
             });
             
-            // Показываем количество результатов
             resultsCount.classList.remove('hidden');
             resultsCount.innerHTML = `Найдено компаний: <span class="font-semibold text-blue-600">${resultsArray.length}</span>`;
-            
-            // Прокручиваем к результатам
-            document.getElementById('resultsContainer').scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'nearest' 
-            });
         }
         
-        // ============================================================================
-        // ОБРАБОТКА ФОРМЫ
-        // ============================================================================
-        
-        async function handleFormSubmit(formData) {
-            showLoading();
-            
-            if (USE_DEMO_MODE) {
-                // Демо-режим
-                setTimeout(() => {
-                    const demoData = getDemoData();
-                    displayResults(demoData);
-                    document.getElementById('demoHint').classList.remove('hidden');
-                }, 1000);
-                return;
-            }
-            
-            // Режим работы с n8n
-            await submitForm(formData);
-        }
-        
-        // ============================================================================
         // ИНИЦИАЛИЗАЦИЯ
-        // ============================================================================
-        
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('Voronka.hh инициализирован');
-            console.log('N8N URL:', N8N_WEBHOOK_URL);
+            // Автокомплиты
+            setupAutocomplete('professional_roles_input', 'professional_roles_dropdown', 
+                'professional_roles_tags', 'professional_roles', 'professional_roles', dataMappers.professional_roles);
+            setupAutocomplete('areas_input', 'areas_dropdown', 
+                'areas_tags', 'areas', 'areas', dataMappers.areas);
+            setupAutocomplete('industries_input', 'industries_dropdown', 
+                'industries_tags', 'industries', 'industries', dataMappers.industries);
             
-            // ИНИЦИАЛИЗАЦИЯ АВТОКОМПЛИТОВ
-            setupAutocomplete(
-                'professional_roles_input',
-                'professional_roles_dropdown',
-                'professional_roles_tags',
-                'professional_roles',
-                'professional_roles',
-                dataMappers.professional_roles
-            );
-            
-            setupAutocomplete(
-                'areas_input',
-                'areas_dropdown',
-                'areas_tags',
-                'areas',
-                'areas',
-                dataMappers.areas
-            );
-            
-            setupAutocomplete(
-                'industries_input',
-                'industries_dropdown',
-                'industries_tags',
-                'industries',
-                'industries',
-                dataMappers.industries
-            );
-            
-            // Обработчик отправки формы
+            // Обработчик формы
             document.getElementById('searchForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
-                // Собираем данные формы
                 const formData = {
                     vacancy: document.getElementById('vacancy').value.trim(),
                     search_in: Array.from(document.querySelectorAll('input[name="search_in"]:checked'))
                         .map(checkbox => checkbox.value),
                     professional_roles: document.getElementById('professional_roles').value
-                        .split(',')
-                        .filter(id => id !== '')
-                        .map(id => parseInt(id)),
+                        .split(',').filter(id => id !== '').map(id => parseInt(id)),
                     areas: document.getElementById('areas').value
-                        .split(',')
-                        .filter(id => id !== '')
-                        .map(id => parseInt(id)),
+                        .split(',').filter(id => id !== '').map(id => parseInt(id)),
                     industries: document.getElementById('industries').value
-                        .split(',')
-                        .filter(id => id !== '')
-                        .map(id => parseInt(id)),
+                        .split(',').filter(id => id !== '').map(id => parseInt(id)),
                     limit: document.getElementById('limit').value || 50
                 };
                 
-                // Проверяем обязательное поле
                 if (!formData.vacancy) {
-                    alert('Пожалуйста, введите вакансию для поиска');
-                    document.getElementById('vacancy').focus();
+                    alert('Введите вакансию');
                     return;
                 }
                 
-                // Обрабатываем форму
-                await handleFormSubmit(formData);
+                showLoading();
+                await submitForm(formData);
             });
             
             // Кнопка "Попробовать снова"
@@ -864,68 +460,7 @@
                 document.getElementById('errorState').classList.add('hidden');
                 document.getElementById('searchForm').dispatchEvent(new Event('submit'));
             });
-            
-            // Кнопка "Показать демо-данные"
-            document.getElementById('demoButton').addEventListener('click', function() {
-                document.getElementById('errorState').classList.add('hidden');
-                showLoading();
-                
-                setTimeout(() => {
-                    const demoData = getDemoData();
-                    displayResults(demoData);
-                    document.getElementById('demoHint').classList.remove('hidden');
-                }, 1000);
-            });
         });
-        
-        // ============================================================================
-        // УТИЛИТЫ ДЛЯ РАБОТЫ В КОНСОЛИ
-        // ============================================================================
-        
-        // Функции для отладки
-        window.testN8N = async function() {
-            console.log('Тестирую подключение к n8n...');
-            const testUrl = N8N_WEBHOOK_URL + '?action=test&vacancy=test';
-            console.log('URL:', testUrl);
-            
-            try {
-                const proxy = 'https://api.allorigins.win/raw?url=';
-                const response = await fetch(proxy + encodeURIComponent(testUrl));
-                console.log('Ответ от n8n:', await response.text());
-            } catch (error) {
-                console.error('Ошибка теста:', error);
-            }
-        };
-        
-        window.showDemo = function() {
-            showLoading();
-            setTimeout(() => {
-                const demoData = getDemoData();
-                displayResults(demoData);
-                document.getElementById('demoHint').classList.remove('hidden');
-            }, 1000);
-        };
-        
-        window.clearResults = function() {
-            document.getElementById('resultsContainer').innerHTML = `
-                <div class="col-span-full text-center text-gray-500 py-10">
-                    <i class="fas fa-building text-4xl mb-4 opacity-30"></i>
-                    <p class="text-lg mb-2">Здесь появятся результаты поиска</p>
-                    <p class="text-sm">Введите параметры поиска и нажмите "Найти компании"</p>
-                </div>
-            `;
-            document.getElementById('resultsCount').classList.add('hidden');
-            document.getElementById('demoHint').classList.add('hidden');
-        };
-        
-        window.clearTags = function() {
-            // Очистка тегов
-            ['professional_roles', 'areas', 'industries'].forEach(type => {
-                selectedValues[type].clear();
-                document.getElementById(`${type}_tags`).innerHTML = '';
-                document.getElementById(type).value = '';
-            });
-        };
     </script>
 </body>
 </html>
