@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voronka.hh - Воронка HH</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Дополнительные стили для автокомплита и тегов */
+        .autocomplete-dropdown {
+            position: absolute;
+            z-index: 1000;
+            max-height: 200px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            width: 100%;
+        }
+        
+        .autocomplete-item {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+        }
+        
+        .autocomplete-item:hover {
+            background-color: #f3f4f6;
+        }
+        
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            background-color: #e0f2fe;
+            color: #0369a1;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            margin: 0.25rem;
+            font-size: 0.875rem;
+        }
+        
+        .tag-remove {
+            margin-left: 0.5rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 0.375rem;
+        }
+        
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid #3F7FBF;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Шапка -->
+        <header class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Воронка HH</h1>
+            <p class="text-gray-600 mt-2">Поиск компаний по вакансиям с HeadHunter</p>
+        </header>
+
+        <!-- Основной блок с формой -->
+        <main class="max-w-4xl mx-auto">
+            <!-- Карточка формы -->
+            <div class="bg-white rounded-xl shadow-md p-6 mb-10">
+                <h2 class="text-xl font-semibold text-gray-800 mb-6">Параметры поиска</h2>
+                
+                <form id="searchForm">
+                    <!-- Поле Вакансия -->
+                    <div class="mb-6">
+                        <label for="vacancy" class="block text-gray-700 font-medium mb-2">Вакансия *</label>
+                        <input 
+                            type="text" 
+                            id="vacancy" 
+                            name="vacancy"
+                            placeholder="Например, бухгалтер" 
+                            required
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition"
+                            value="бухгалтер"
+                        >
+                        <p class="text-gray-500 text-sm mt-1">Обязательное поле для поиска</p>
+                    </div>
+                    
+                    <!-- Чекбоксы "Где искать" -->
+                    <div class="mb-6">
+                        <p class="block text-gray-700 font-medium mb-2">Искать в:</p>
+                        <div class="flex flex-col md:flex-row gap-3">
+                            <label class="inline-flex items-center">
+                                <input 
+                                    type="checkbox" 
+                                    id="search_in_name" 
+                                    name="search_in" 
+                                    value="name"
+                                    checked
+                                    class="rounded text-blue-600 focus:ring-blue-500"
+                                >
+                                <span class="ml-2 text-gray-700">Название вакансии</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input 
+                                    type="checkbox" 
+                                    id="search_in_company" 
+                                    name="search_in" 
+                                    value="company"
+                                    class="rounded text-blue-600 focus:ring-blue-500"
+                                >
+                                <span class="ml-2 text-gray-700">Название компании</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input 
+                                    type="checkbox" 
+                                    id="search_in_description" 
+                                    name="search_in" 
+                                    value="description"
+                                    class="rounded text-blue-600 focus:ring-blue-500"
+                                >
+                                <span class="ml-2 text-gray-700">Описание вакансии</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Поле Роль с автокомплитом -->
+                    <div class="mb-6">
+                        <label for="professional_roles_input" class="block text-gray-700 font-medium mb-2">Роль</label>
+                        <div class="relative">
+                            <input 
+                                type="text" 
+                                id="professional_roles_input"
+                                placeholder="Начните вводить роль, например, Финансы" 
+                                autocomplete="off"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition"
+                            >
+                            <!-- Контейнер для выпадающего списка -->
+                            <div id="professional_roles_dropdown" class="autocomplete-dropdown hidden"></div>
+                        </div>
+                        <!-- Контейнер для выбранных тегов -->
+                        <div id="professional_roles_tags" class="mt-3 flex flex-wrap"></div>
+                        <!-- Скрытый инпут для хранения ID выбранных ролей -->
+                        <input type="hidden" id="professional_roles" name="professional_roles">
+                    </div>
+                    
+                    <!-- Поле Регион с автокомплитом -->
+                    <div class="mb-6">
+                        <label for="areas_input" class="block text-gray-700 font-medium mb-2">Регион</label>
+                        <div class="relative">
+                            <input 
+                                type="text" 
+                                id="areas_input"
+                                placeholder="Начните вводить регион, например, Москва" 
+                                autocomplete="off"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition"
+                            >
+                            <!-- Контейнер для выпадающего списка -->
+                            <div id="areas_dropdown" class="autocomplete-dropdown hidden"></div>
+                        </div>
+                        <!-- Контейнер для выбранных тегов -->
+                        <div id="areas_tags" class="mt-3 flex flex-wrap"></div>
+                        <!-- Скрытый инпут для хранения ID выбранных регионов -->
+                        <input type="hidden" id="areas" name="areas">
+                    </div>
+                    
+                    <!-- Поле Вид деятельности с автокомплитом -->
+                    <div class="mb-6">
+                        <label for="industries_input" class="block text-gray-700 font-medium mb-2">Вид деятельности</label>
+                        <div class="relative">
+                            <input 
+                                type="text" 
+                                id="industries_input"
+                                placeholder="Начните вводить вид деятельности, например, IT" 
+                                autocomplete="off"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition"
+                            >
+                            <!-- Контейнер для выпадающего списка -->
+                            <div id="industries_dropdown" class="autocomplete-dropdown hidden"></div>
+                        </div>
+                        <!-- Контейнер для выбранных тегов -->
+                        <div id="industries_tags" class="mt-3 flex flex-wrap"></div>
+                        <!-- Скрытый инпут для хранения ID выбранных отраслей -->
+                        <input type="hidden" id="industries" name="industries">
+                    </div>
+                    
+                    <!-- Поле Ограничить выдачу -->
+                    <div class="mb-8">
+                        <label for="limit" class="block text-gray-700 font-medium mb-2">Ограничить выдачу</label>
+                        <input 
+                            type="number" 
+                            id="limit" 
+                            name="limit"
+                            placeholder="Например, 50" 
+                            min="1" 
+                            max="2000"
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition"
+                        >
+                        <p class="text-gray-500 text-sm mt-1">Максимальное количество результатов (от 1 до 2000)</p>
+                    </div>
+                    
+                    <!-- Кнопка отправки -->
+                    <div class="text-center">
+                        <button 
+                            type="submit" 
+                            id="submitBtn"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-lg transition duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        >
+                            <i class="fas fa-search mr-2"></i> Найти компании
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Область результатов -->
+            <div class="mb-10">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Результаты поиска</h2>
+                
+                <!-- Блок с состоянием загрузки -->
+                <div id="loadingState" class="hidden text-center py-10">
+                    <div class="spinner mx-auto mb-4"></div>
+                    <p class="text-gray-700">Идет поиск компаний...</p>
+                    <p class="text-gray-500 text-sm mt-2">Это может занять несколько секунд</p>
+                </div>
+                
+                <!-- Блок с сообщением об ошибке -->
+                <div id="errorState" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                    <i class="fas fa-exclamation-triangle text-red-500 text-3xl mb-4"></i>
+                    <h3 class="text-red-700 font-semibold text-lg mb-2">Произошла ошибка</h3>
+                    <p id="errorMessage" class="text-red-600"></p>
+                    <button id="retryButton" class="mt-4 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-6 rounded-lg transition">
+                        Попробовать снова
+                    </button>
+                </div>
+                
+                <!-- Контейнер для результатов -->
+                <div id="resultsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Карточки компаний будут добавляться сюда -->
+                    <div class="text-center text-gray-500 py-10">
+                        <i class="fas fa-building text-4xl mb-4 opacity-30"></i>
+                        <p>Здесь появятся результаты поиска</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Футер -->
+        <footer class="text-center text-gray-500 text-sm mt-12 pb-6">
+            <p>Voronka.hh &copy; 2023 | Интеграция с API HH.ru</p>
+            <p class="mt-1">Этот инструмент помогает найти компании по вакансиям с HeadHunter</p>
+        </footer>
+    </div>
+
+    <script>
+        // ============================================================================
+        // КОНФИГУРАЦИЯ
+        // ============================================================================
+        
+        // ВАЖНО: Замените этот URL на адрес вашего вебхука
+        const WEBHOOK_URL = 'https://n8n.pipegun.ru/webhook-test/voronka';
+        
+        // URL для опроса результатов (Long Polling)
+        const RESULTS_POLLING_URL = 'https://your-webhook-endpoint.com/results';
+        
+        // API HH.ru
+        const HH_API = {
+            professional_roles: 'https://api.hh.ru/professional_roles',
+            areas: 'https://api.hh.ru/areas',
+            industries: 'https://api.hh.ru/industries'
+        };
+        
+        // ============================================================================
+        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ============================================================================
+        
+        // Хранилище данных для автокомплита
+        const autocompleteData = {
+            professional_roles: [],
+            areas: [],
+            industries: []
+        };
+        
+        // Хранилище выбранных значений
+        const selectedValues = {
+            professional_roles: new Map(), // id -> {id, text}
+            areas: new Map(),
+            industries: new Map()
+        };
+        
+        // Таймеры для debounce
+        const debounceTimers = {};
+        
+        // Текущий requestId для опроса результатов
+        let currentRequestId = null;
+        let pollingInterval = null;
+        
+        // ============================================================================
+        // ФУНКЦИИ ДЛЯ АВТОКОМПЛИТА И ТЕГОВ
+        // ============================================================================
+        
+        /**
+         * Инициализация автокомплита для поля ввода
+         * @param {string} inputId - ID поля ввода
+         * @param {string} dropdownId - ID контейнера для выпадающего списка
+         * @param {string} tagsContainerId - ID контейнера для тегов
+         * @param {string} hiddenInputId - ID скрытого input для хранения ID
+         * @param {string} apiEndpoint - Ключ API в HH_API
+         * @param {Function} dataMapper - Функция для преобразования данных API
+         */
+        function setupAutocomplete(inputId, dropdownId, tagsContainerId, hiddenInputId, apiEndpoint, dataMapper) {
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            const tagsContainer = document.getElementById(tagsContainerId);
+            const hiddenInput = document.getElementById(hiddenInputId);
+            const type = hiddenInputId; // professional_roles, areas или industries
+            
+            // Обработчик ввода текста
+            input.addEventListener('input', function() {
+                const query = this.value.trim();
+                
+                // Очищаем предыдущий таймер
+                if (debounceTimers[inputId]) {
+                    clearTimeout(debounceTimers[inputId]);
+                }
+                
+                // Скрываем выпадающий список если запрос слишком короткий
+                if (query.length < 2) {
+                    dropdown.classList.add('hidden');
+                    return;
+                }
+                
+                // Устанавливаем новый таймер (debounce 300ms)
+                debounceTimers[inputId] = setTimeout(async () => {
+                    try {
+                        // Показываем индикатор загрузки
+                        dropdown.innerHTML = '<div class="autocomplete-item skeleton" style="height: 40px;"></div>';
+                        dropdown.classList.remove('hidden');
+                        
+                        // Загружаем данные с API HH.ru
+                        const response = await fetch(HH_API[apiEndpoint]);
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        
+                        const data = await response.json();
+                        
+                        // Сохраняем данные для последующего использования
+                        autocompleteData[type] = dataMapper(data);
+                        
+                        // Фильтруем по запросу
+                        const filtered = autocompleteData[type].filter(item => 
+                            item.text.toLowerCase().includes(query.toLowerCase())
+                        );
+                        
+                        // Очищаем выпадающий список
+                        dropdown.innerHTML = '';
+                        
+                        // Если нет результатов
+                        if (filtered.length === 0) {
+                            const noResults = document.createElement('div');
+                            noResults.className = 'autocomplete-item text-gray-500';
+                            noResults.textContent = 'Ничего не найдено';
+                            dropdown.appendChild(noResults);
+                            return;
+                        }
+                        
+                        // Добавляем результаты (ограничиваем 10)
+                        filtered.slice(0, 10).forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'autocomplete-item';
+                            div.textContent = item.text;
+                            div.dataset.id = item.id;
+                            div.dataset.text = item.text;
+                            
+                            div.addEventListener('click', () => {
+                                addTag(item.id, item.text, type, tagsContainer, hiddenInput);
+                                input.value = '';
+                                dropdown.classList.add('hidden');
+                            });
+                            
+                            dropdown.appendChild(div);
+                        });
+                        
+                    } catch (error) {
+                        console.error(`Ошибка при загрузке данных для ${type}:`, error);
+                        dropdown.innerHTML = '<div class="autocomplete-item text-red-500">Ошибка загрузки данных</div>';
+                    }
+                }, 300);
+            });
+            
+            // Скрываем выпадающий список при клике вне его
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+            
+            // Очистка поля ввода при фокусе
+            input.addEventListener('focus', function() {
+                if (this.value) {
+                    const query = this.value.trim();
+                    if (query.length >= 2) {
+                        // Показываем предыдущие результаты если они есть
+                        const filtered = autocompleteData[type].filter(item => 
+                            item.text.toLowerCase().includes(query.toLowerCase())
+                        );
+                        
+                        if (filtered.length > 0) {
+                            dropdown.innerHTML = '';
+                            filtered.slice(0, 10).forEach(item => {
+                                const div = document.createElement('div');
+                                div.className = 'autocomplete-item';
+                                div.textContent = item.text;
+                                div.dataset.id = item.id;
+                                div.dataset.text = item.text;
+                                
+                                div.addEventListener('click', () => {
+                                    addTag(item.id, item.text, type, tagsContainer, hiddenInput);
+                                    input.value = '';
+                                    dropdown.classList.add('hidden');
+                                });
+                                
+                                dropdown.appendChild(div);
+                            });
+                            dropdown.classList.remove('hidden');
+                        }
+                    }
+                }
+            });
+        }
+        
+        /**
+         * Добавление тега для выбранного значения
+         * @param {string} id - ID значения
+         * @param {string} text - Текст для отображения
+         * @param {string} type - Тип (professional_roles, areas, industries)
+         * @param {HTMLElement} tagsContainer - Контейнер для тегов
+         * @param {HTMLElement} hiddenInput - Скрытый input
+         */
+        function addTag(id, text, type, tagsContainer, hiddenInput) {
+            // Проверяем, не добавлен ли уже этот тег
+            if (selectedValues[type].has(id)) {
+                return;
+            }
+            
+            // Добавляем в хранилище
+            selectedValues[type].set(id, { id, text });
+            
+            // Обновляем скрытый input
+            updateHiddenInput(type, hiddenInput);
+            
+            // Создаем визуальный тег
+            const tag = document.createElement('div');
+            tag.className = 'tag';
+            tag.innerHTML = `
+                ${text}
+                <span class="tag-remove" data-id="${id}">&times;</span>
+            `;
+            
+            // Добавляем обработчик удаления
+            const removeBtn = tag.querySelector('.tag-remove');
+            removeBtn.addEventListener('click', () => {
+                removeTag(id, type, tag, hiddenInput);
+            });
+            
+            // Добавляем тег в контейнер
+            tagsContainer.appendChild(tag);
+        }
+        
+        /**
+         * Удаление тега
+         * @param {string} id - ID значения
+         * @param {string} type - Тип (professional_roles, areas, industries)
+         * @param {HTMLElement} tagElement - DOM-элемент тега
+         * @param {HTMLElement} hiddenInput - Скрытый input
+         */
+        function removeTag(id, type, tagElement, hiddenInput) {
+            // Удаляем из хранилища
+            selectedValues[type].delete(id);
+            
+            // Удаляем визуальный тег
+            tagElement.remove();
+            
+            // Обновляем скрытый input
+            updateHiddenInput(type, hiddenInput);
+        }
+        
+        /**
+         * Обновление скрытого input с ID выбранных значений
+         * @param {string} type - Тип (professional_roles, areas, industries)
+         * @param {HTMLElement} hiddenInput - Скрытый input
+         */
+        function updateHiddenInput(type, hiddenInput) {
+            const ids = Array.from(selectedValues[type].keys());
+            hiddenInput.value = ids.join(',');
+        }
+        
+        /**
+         * Функции для преобразования данных API HH.ru
+         */
+        const dataMappers = {
+            // Для профессиональных ролей
+            professional_roles: (data) => {
+                const items = [];
+                data.categories.forEach(category => {
+                    category.roles.forEach(role => {
+                        items.push({
+                            id: role.id,
+                            text: role.name
+                        });
+                    });
+                });
+                return items;
+            },
+            
+            // Для регионов (с обработкой вложенности)
+            areas: (data) => {
+                const items = [];
+                
+                function processArea(area, path = '') {
+                    const currentPath = path ? `${path} -> ${area.name}` : area.name;
+                    
+                    // Добавляем текущий регион
+                    items.push({
+                        id: area.id,
+                        text: currentPath
+                    });
+                    
+                    // Обрабатываем дочерние регионы
+                    if (area.areas && area.areas.length > 0) {
+                        area.areas.forEach(child => {
+                            processArea(child, currentPath);
+                        });
+                    }
+                }
+                
+                // Начинаем с страны (Россия)
+                const russia = data.find(area => area.name === 'Россия');
+                if (russia) {
+                    processArea(russia);
+                } else {
+                    // Если не нашли Россию, обрабатываем все
+                    data.forEach(area => {
+                        processArea(area);
+                    });
+                }
+                
+                return items;
+            },
+            
+            // Для отраслей
+            industries: (data) => {
+                return data.map(industry => ({
+                    id: industry.id,
+                    text: industry.name
+                }));
+            }
+        };
+        
+        // ============================================================================
+        // ФУНКЦИИ ДЛЯ ОТПРАВКИ ФОРМЫ И ПОЛУЧЕНИЯ РЕЗУЛЬТАТОВ
+        // ============================================================================
+        
+        /**
+         * Показать состояние загрузки
+         */
+        function showLoading() {
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('errorState').classList.add('hidden');
+            document.getElementById('resultsContainer').innerHTML = '';
+            
+            // Блокируем форму
+            document.getElementById('submitBtn').disabled = true;
+            document.querySelectorAll('#searchForm input, #searchForm button').forEach(el => {
+                el.disabled = true;
+            });
+        }
+        
+        /**
+         * Скрыть состояние загрузки
+         */
+        function hideLoading() {
+            document.getElementById('loadingState').classList.add('hidden');
+            
+            // Разблокируем форму
+            document.getElementById('submitBtn').disabled = false;
+            document.querySelectorAll('#searchForm input, #searchForm button').forEach(el => {
+                el.disabled = false;
+            });
+        }
+        
+        /**
+         * Показать ошибку
+         * @param {string} message - Сообщение об ошибке
+         */
+        function showError(message) {
+            hideLoading();
+            document.getElementById('errorState').classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = message;
+        }
+        
+        /**
+         * Отправка данных формы на вебхук
+         */
+        async function submitForm(formData) {
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return data;
+                
+            } catch (error) {
+                console.error('Ошибка при отправке формы:', error);
+                throw new Error('Не удалось отправить запрос. Проверьте подключение к интернету.');
+            }
+        }
+        
+        /**
+         * Опрос результатов (Long Polling)
+         * @param {string} requestId - ID запроса
+         */
+        function pollResults(requestId) {
+            // Останавливаем предыдущий опрос если есть
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+            
+            let attempts = 0;
+            const maxAttempts = 100; // Максимум 100 попыток (5 минут при интервале 3 сек)
+            
+            pollingInterval = setInterval(async () => {
+                attempts++;
+                
+                try {
+                    const response = await fetch(`${RESULTS_POLLING_URL}?requestId=${requestId}`);
+                    
+                    if (response.status === 202) {
+                        // Результаты еще не готовы
+                        console.log(`Результаты не готовы, попытка ${attempts}/${maxAttempts}`);
+                        return;
+                    }
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    // Результаты готовы
+                    const results = await response.json();
+                    
+                    // Останавливаем опрос
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
+                    
+                    // Отображаем результаты
+                    displayResults(results);
+                    
+                } catch (error) {
+                    console.error('Ошибка при опросе результатов:', error);
+                    
+                    // Если превышено количество попыток
+                    if (attempts >= maxAttempts) {
+                        clearInterval(pollingInterval);
+                        pollingInterval = null;
+                        showError('Превышено время ожидания результатов. Попробуйте позже.');
+                    }
+                }
+            }, 3000); // Опрос каждые 3 секунды
+        }
+        
+        /**
+         * Отображение результатов в виде карточек
+         * @param {Array} results - Массив с данными компаний
+         */
+        function displayResults(results) {
+            hideLoading();
+            
+            const container = document.getElementById('resultsContainer');
+            
+            if (!results || results.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-10">
+                        <i class="fas fa-search text-4xl text-gray-300 mb-4"></i>
+                        <h3 class="text-gray-700 font-semibold text-lg mb-2">Ничего не найдено</h3>
+                        <p class="text-gray-500">Попробуйте изменить параметры поиска</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Очищаем контейнер
+            container.innerHTML = '';
+            
+            // Создаем карточки для каждой компании
+            results.forEach(company => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300';
+                
+                // Формируем содержимое карточки
+                card.innerHTML = `
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold text-gray-800 mb-3 truncate">${company.name || 'Название не указано'}</h3>
+                        
+                        <div class="space-y-3">
+                            ${company.website ? `
+                            <div class="flex items-start">
+                                <span class="font-medium text-gray-700 min-w-[80px]">Сайт:</span>
+                                <a href="${company.website}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline truncate">
+                                    ${company.website.replace(/^https?:\/\//, '')}
+                                </a>
+                            </div>
+                            ` : ''}
+                            
+                            ${company.inn ? `
+                            <div class="flex items-start">
+                                <span class="font-medium text-gray-700 min-w-[80px]">ИНН:</span>
+                                <span class="text-gray-600">${company.inn}</span>
+                            </div>
+                            ` : ''}
+                            
+                            ${company.hh_link ? `
+                            <div class="flex items-start">
+                                <span class="font-medium text-gray-700 min-w-[80px]">HH.ru:</span>
+                                <a href="${company.hh_link}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline truncate">
+                                    Ссылка на вакансию
+                                </a>
+                            </div>
+                            ` : ''}
+                            
+                            ${company.vacancy_count ? `
+                            <div class="flex items-start">
+                                <span class="font-medium text-gray-700 min-w-[80px]">Вакансий:</span>
+                                <span class="text-gray-600">${company.vacancy_count}</span>
+                            </div>
+                            ` : ''}
+                            
+                            ${company.description ? `
+                            <div class="mt-4 pt-4 border-t border-gray-100">
+                                <p class="text-gray-600 text-sm line-clamp-3">${company.description}</p>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+            
+            // Показываем количество найденных компаний
+            const countElement = document.createElement('div');
+            countElement.className = 'col-span-full mb-4 text-gray-600';
+            countElement.innerHTML = `<p>Найдено компаний: <span class="font-semibold">${results.length}</span></p>`;
+            container.insertBefore(countElement, container.firstChild);
+        }
+        
+        // ============================================================================
+        // ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
+        // ============================================================================
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // 1. Инициализация автокомплитов
+            setupAutocomplete(
+                'professional_roles_input',
+                'professional_roles_dropdown',
+                'professional_roles_tags',
+                'professional_roles',
+                'professional_roles',
+                dataMappers.professional_roles
+            );
+            
+            setupAutocomplete(
+                'areas_input',
+                'areas_dropdown',
+                'areas_tags',
+                'areas',
+                'areas',
+                dataMappers.areas
+            );
+            
+            setupAutocomplete(
+                'industries_input',
+                'industries_dropdown',
+                'industries_tags',
+                'industries',
+                'industries',
+                dataMappers.industries
+            );
+            
+            // 2. Обработчик отправки формы
+            document.getElementById('searchForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // Валидация формы
+                const vacancyInput = document.getElementById('vacancy');
+                if (!vacancyInput.value.trim()) {
+                    vacancyInput.focus();
+                    showError('Поле "Вакансия" обязательно для заполнения');
+                    return;
+                }
+                
+                // Сбор данных формы
+                const formData = {
+                    vacancy: vacancyInput.value.trim(),
+                    search_in: Array.from(document.querySelectorAll('input[name="search_in"]:checked'))
+                        .map(checkbox => checkbox.value),
+                    professional_roles: document.getElementById('professional_roles').value
+                        .split(',')
+                        .filter(id => id !== '')
+                        .map(id => parseInt(id)),
+                    areas: document.getElementById('areas').value
+                        .split(',')
+                        .filter(id => id !== '')
+                        .map(id => parseInt(id)),
+                    industries: document.getElementById('industries').value
+                        .split(',')
+                        .filter(id => id !== '')
+                        .map(id => parseInt(id))
+                };
+                
+                // Добавляем limit если указан
+                const limitInput = document.getElementById('limit');
+                if (limitInput.value && !isNaN(limitInput.value) && limitInput.value > 0) {
+                    formData.limit = parseInt(limitInput.value);
+                    
+                    // Проверяем максимальное значение
+                    if (formData.limit > 2000) {
+                        showError('Максимальное количество результатов - 2000');
+                        return;
+                    }
+                }
+                
+                // Показываем состояние загрузки
+                showLoading();
+                
+                try {
+                    // Отправляем данные на вебхук
+                    const response = await submitForm(formData);
+                    
+                    // Проверяем наличие requestId
+                    if (response && response.requestId) {
+                        currentRequestId = response.requestId;
+                        
+                        // Начинаем опрос результатов
+                        pollResults(currentRequestId);
+                    } else {
+                        throw new Error('Не получен requestId от сервера');
+                    }
+                    
+                } catch (error) {
+                    showError(error.message);
+                }
+            });
+            
+            // 3. Обработчик кнопки "Попробовать снова"
+            document.getElementById('retryButton').addEventListener('click', function() {
+                document.getElementById('errorState').classList.add('hidden');
+            });
+            
+            // 4. Устанавливаем значение по умолчанию для поля "Вакансия"
+            document.getElementById('vacancy').value = 'бухгалтер';
+        });
+    </script>
+</body>
+</html>
