@@ -354,45 +354,36 @@
     const container = document.getElementById('resultsContainer');
     const resultsCount = document.getElementById('resultsCount');
     
-    // ОТЛАДКА
     console.log('Что пришло в displayResults:', results);
     console.log('Тип:', typeof results);
     console.log('Is array?', Array.isArray(results));
     
-    // Обрабатываем разные форматы
+    // Обрабатываем новый формат
     let resultsArray = [];
     
-    // Если это массив - берем как есть
-    if (Array.isArray(results)) {
+    // Формат 1: [{companies: [...]}] - новый формат
+    if (Array.isArray(results) && results.length > 0 && results[0].companies) {
+        console.log('Обнаружен новый формат с companies');
+        resultsArray = results[0].companies;
+    }
+    // Формат 2: Просто массив компаний
+    else if (Array.isArray(results)) {
+        console.log('Простой массив компаний');
         resultsArray = results;
-    } 
-    // Если это объект с полем data (массив)
+    }
+    // Формат 3: {companies: [...]}
+    else if (results && results.companies && Array.isArray(results.companies)) {
+        console.log('Объект с полем companies');
+        resultsArray = results.companies;
+    }
+    // Формат 4: {data: [...]}
     else if (results && results.data && Array.isArray(results.data)) {
+        console.log('Объект с полем data');
         resultsArray = results.data;
-    }
-    // Если это просто объект (не массив) - оборачиваем в массив
-    else if (results && typeof results === 'object' && !Array.isArray(results)) {
-        console.log('Это объект, а не массив. Оборачиваю в массив.');
-        resultsArray = [results]; // Оборачиваем одиночный объект в массив
-    }
-    // Если это строка (например, JSON строка)
-    else if (typeof results === 'string') {
-        try {
-            const parsed = JSON.parse(results);
-            if (Array.isArray(parsed)) {
-                resultsArray = parsed;
-            } else if (parsed && parsed.data) {
-                resultsArray = parsed.data;
-            } else {
-                resultsArray = [parsed];
-            }
-        } catch (e) {
-            console.error('Не удалось распарсить JSON:', e);
-        }
     }
     
     console.log('Обработанный массив:', resultsArray);
-    console.log('Количество элементов:', resultsArray.length);
+    console.log('Количество компаний:', resultsArray.length);
     
     // Если нет результатов
     if (resultsArray.length === 0) {
@@ -423,7 +414,7 @@
         const hhLink = company.vacancy || company.url || company.hh_link || '';
         
         // Проверяем, не пустой ли сайт
-        const displayWebsite = (website && website !== 'http://' && website !== 'https://' && website !== 'null') 
+        const displayWebsite = (website && website !== 'http://' && website !== 'https://' && website !== 'null' && website !== null) 
             ? website 
             : '';
         
