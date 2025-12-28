@@ -36,16 +36,36 @@
             font-weight: 600;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+        .history-badge {
+            display: inline-flex;
+            align-items: center;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            margin-left: 0.5rem;
+        }
     </style>
 </head>
 <body class="bg-gray-50 font-sans min-h-screen">
     <div class="container mx-auto px-4 py-8">
         <!-- Блок с именем пользователя и балансом -->
         <div class="flex justify-between items-center mb-6">
-            <!-- Имя пользователя слева -->
-            <div class="user-badge">
-                <i class="fas fa-user-circle mr-2"></i>
-                <span id="username">Загрузка...</span>
+            <div class="flex items-center">
+                <!-- Имя пользователя слева -->
+                <div class="user-badge">
+                    <i class="fas fa-user-circle mr-2"></i>
+                    <span id="username">Загрузка...</span>
+                </div>
+                
+                <!-- Бейдж истории поиска -->
+                <div id="historyBadge" class="history-badge hidden">
+                    <i class="fas fa-history mr-2"></i>
+                    <span id="historyCount">0</span>
+                </div>
             </div>
             
             <!-- Баланс справа -->
@@ -138,7 +158,12 @@
             <div class="mb-10">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-2xl font-bold text-gray-800">Результаты поиска</h2>
-                    <span id="resultsCount" class="text-gray-600 hidden">Найдено: <span class="font-semibold">0</span></span>
+                    <div class="flex items-center gap-4">
+                        <span id="resultsCount" class="text-gray-600 hidden">Найдено: <span class="font-semibold">0</span></span>
+                        <button id="clearHistoryBtn" class="hidden text-sm text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-trash-alt mr-1"></i> Очистить историю
+                        </button>
+                    </div>
                 </div>
                 
                 <div id="loadingState" class="hidden text-center py-10">
@@ -175,6 +200,15 @@
             industries: 'https://api.hh.ru/industries'
         };
         
+        // СЕССИЯ И ИСТОРИЯ ПОИСКА
+        const STORAGE_KEY = 'voronka_search_history';
+        let currentSession = {
+            userId: null,
+            username: null,
+            searchHistory: [],
+            lastResults: null
+        };
+        
         let autocompleteData = {
             professional_roles: [],
             areas: [],
@@ -198,11 +232,91 @@
             };
         }
         
+        // ФУНКЦИИ ДЛЯ РАБОТЫ С СЕССИЕЙ И ИСТОРИЕЙ
+        function loadSession() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    currentSession = {
+                        ...currentSession,
+                        ...parsed
+                    };
+                    
+                    // Показываем историю если есть
+                    updateHistoryBadge();
+                    
+                    // Восстанавливаем последние результаты
+                    if (currentSession.lastResults) {
+                        displayResults(currentSession.lastResults, true);
+                    }
+                }
+            } catch (e) {
+                console.error('Ошибка загрузки сессии:', e);
+                clearSession();
+            }
+        }
+        
+        function saveSession() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(currentSession));
+            } catch (e) {
+                console.error('Ошибка сохранения сессии:', e);
+            }
+        }
+        
+        function clearSession() {
+            currentSession = {
+                userId: null,
+                username: null,
+                searchHistory: [],
+                lastResults: null
+            };
+            localStorage.removeItem(STORAGE_KEY);
+            updateHistoryBadge();
+        }
+        
+        function addToHistory(searchParams, results) {
+            if (!currentSession.userId) return;
+            
+            const historyItem = {
+                timestamp: new Date().toISOString(),
+                params: searchParams,
+                resultsCount: Array.isArray(results) ? results.length : 
+                    (results.companies ? results.companies.length : 0)
+            };
+            
+            currentSession.searchHistory.unshift(historyItem);
+            // Храним только последние 10 запросов
+            currentSession.searchHistory = currentSession.searchHistory.slice(0, 10);
+            
+            currentSession.lastResults = results;
+            
+            saveSession();
+            updateHistoryBadge();
+        }
+        
+        function updateHistoryBadge() {
+            const historyBadge = document.getElementById('historyBadge');
+            const historyCount = document.getElementById('historyCount');
+            const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+            
+            if (currentSession.searchHistory.length > 0) {
+                historyBadge.classList.remove('hidden');
+                historyCount.textContent = currentSession.searchHistory.length;
+                clearHistoryBtn.classList.remove('hidden');
+            } else {
+                historyBadge.classList.add('hidden');
+                clearHistoryBtn.classList.add('hidden');
+            }
+        }
+        
         // ФУНКЦИЯ ОБНОВЛЕНИЯ ИМЕНИ ПОЛЬЗОВАТЕЛЯ
         function updateUsername(username) {
             const usernameElement = document.getElementById('username');
             if (username) {
                 usernameElement.textContent = username.startsWith('@') ? username : `@${username}`;
+                currentSession.username = username;
             } else {
                 usernameElement.textContent = '@guest';
                 usernameElement.style.opacity = '0.7';
@@ -222,8 +336,12 @@
             // Устанавливаем имя пользователя
             updateUsername(params.username);
             
-            // Загружаем баланс если есть ID
+            // Сохраняем ID пользователя в сессии
             if (params.id) {
+                currentSession.userId = params.id;
+                saveSession();
+                
+                // Загружаем баланс
                 try {
                     const response = await fetch(`${BALANCE_API_URL}?id=${params.id}`);
                     
@@ -233,7 +351,6 @@
                     
                     const data = await response.json();
                     
-                    // Ожидаем структуру {balance: число} или {balance: число, currency: "companies"}
                     if (data.balance !== undefined) {
                         updateBalance(data.balance);
                     } else {
@@ -252,9 +369,30 @@
             }
         }
         
-        // ИНИЦИАЛИЗАЦИЯ - загружаем данные пользователя при загрузке страницы
+        // ИНИЦИАЛИЗАЦИЯ
         document.addEventListener('DOMContentLoaded', function() {
+            // Загружаем сессию
+            loadSession();
+            
+            // Загружаем данные пользователя
             loadUserData();
+            
+            // Обработчик клика по бейджу истории
+            document.getElementById('historyBadge').addEventListener('click', function() {
+                if (currentSession.searchHistory.length > 0) {
+                    alert(`История поиска (последние ${currentSession.searchHistory.length} запросов):\n\n` +
+                        currentSession.searchHistory.map((item, i) => 
+                            `${i+1}. ${new Date(item.timestamp).toLocaleString()} - ${item.resultsCount} компаний`
+                        ).join('\n'));
+                }
+            });
+            
+            // Обработчик очистки истории
+            document.getElementById('clearHistoryBtn').addEventListener('click', function() {
+                if (confirm('Очистить всю историю поиска?')) {
+                    clearSession();
+                }
+            });
             
             // Автокомплиты
             setupAutocomplete('professional_roles_input', 'professional_roles_dropdown', 
@@ -442,7 +580,7 @@
             document.getElementById('errorMessage').textContent = message;
         }
         
-        // ОТПРАВКА ФОРМЫ
+        // ОТПРАВКА ФОРМЫ С ID ПОЛЬЗОВАТЕЛЯ
         async function submitForm(formData) {
             try {
                 console.log('Отправка данных:', formData);
@@ -450,6 +588,11 @@
                 const params = new URLSearchParams();
                 params.append('vacancy', formData.vacancy);
                 params.append('search_in', formData.search_in.join(','));
+                
+                // ДОБАВЛЯЕМ ID ПОЛЬЗОВАТЕЛЯ ЕСЛИ ЕСТЬ
+                if (currentSession.userId) {
+                    params.append('user_id', currentSession.userId);
+                }
                 
                 if (formData.professional_roles.length > 0) {
                     params.append('professional_roles', formData.professional_roles.join(','));
@@ -483,6 +626,11 @@
                 
                 const data = await response.json();
                 console.log('Получены данные:', data);
+                
+                // Сохраняем в историю
+                addToHistory(formData, data);
+                
+                // Отображаем результаты
                 displayResults(data);
                 
             } catch (error) {
@@ -491,7 +639,7 @@
             }
         }
         
-        function displayResults(results) {
+        function displayResults(results, fromHistory = false) {
             hideLoading();
             
             const container = document.getElementById('resultsContainer');
@@ -601,11 +749,17 @@
             resultsCount.classList.remove('hidden');
             resultsCount.innerHTML = `Найдено компаний: <span class="font-semibold text-blue-600">${resultsArray.length}</span>`;
             
-            // Прокручиваем к результатам
-            document.getElementById('resultsContainer').scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'nearest' 
-            });
+            if (fromHistory) {
+                resultsCount.innerHTML += ' <span class="text-gray-500 text-sm">(из истории)</span>';
+            }
+            
+            // Прокручиваем к результатам если не из истории
+            if (!fromHistory) {
+                document.getElementById('resultsContainer').scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'nearest' 
+                });
+            }
         }
     </script>
 </body>
