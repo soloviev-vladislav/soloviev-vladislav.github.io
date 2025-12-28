@@ -187,6 +187,7 @@
         // КОНФИГУРАЦИЯ
         const N8N_WEBHOOK_URL = 'https://n8n.pipegun.ru/webhook/voronka';
         const BALANCE_API_URL = 'https://n8n.pipegun.ru/webhook/balance';
+        const SPEND_API_URL = 'https://n8n.pipegun.ru/webhook/spend';
         const HH_API = {
             professional_roles: 'https://api.hh.ru/professional_roles',
             areas: 'https://api.hh.ru/areas',
@@ -200,7 +201,8 @@
             username: null,
             searchHistory: [],
             lastResults: null,
-            currentBalance: 0
+            currentBalance: 0,
+            lastSpendId: null
         };
         
         let autocompleteData = {
@@ -262,7 +264,8 @@
                 username: null,
                 searchHistory: [],
                 lastResults: null,
-                currentBalance: 0
+                currentBalance: 0,
+                lastSpendId: null
             };
             localStorage.removeItem(STORAGE_KEY);
         }
@@ -284,6 +287,61 @@
             currentSession.lastResults = results;
             
             saveSession();
+        }
+        
+        // ФУНКЦИЯ ДЛЯ СПИСАНИЯ БАЛАНСА
+        async function spendBalance(amount, searchQuery) {
+            try {
+                // Проверяем, не списывали ли уже за этот поиск
+                if (currentSession.lastSpendId) {
+                    console.log('Баланс уже был списан за этот поиск');
+                    return false;
+                }
+                
+                if (!currentSession.userId) {
+                    console.warn('Нет ID пользователя для списания баланса');
+                    return false;
+                }
+                
+                const spendData = {
+                    user_id: currentSession.userId,
+                    amount: amount,
+                    search_query: searchQuery
+                };
+                
+                console.log('Отправка запроса на списание:', spendData);
+                
+                const response = await fetch(SPEND_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(spendData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Ошибка списания баланса: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Ответ от сервера списания:', data);
+                
+                // Сохраняем идентификатор списания для предотвращения повторного списания
+                currentSession.lastSpendId = `spend_${Date.now()}_${amount}`;
+                saveSession();
+                
+                // Обновляем баланс в интерфейсе если сервер вернул новый баланс
+                if (data.new_balance !== undefined) {
+                    updateBalance(data.new_balance);
+                }
+                
+                return true;
+                
+            } catch (error) {
+                console.error('Ошибка при списании баланса:', error);
+                return false;
+            }
         }
         
         // ФУНКЦИЯ ОБНОВЛЕНИЯ ИМЕНИ ПОЛЬЗОВАТЕЛЯ
@@ -695,6 +753,15 @@
                 `;
                 resultsCount.classList.add('hidden');
                 return;
+            }
+            
+            // СПИСЫВАЕМ БАЛАНС ТОЛЬКО ЕСЛИ НЕ ИЗ ИСТОРИИ
+            if (!fromHistory && resultsArray.length > 0) {
+                // Получаем поисковый запрос из формы
+                const searchQuery = document.getElementById('vacancy').value.trim();
+                
+                // Списываем баланс (количество найденных компаний)
+                spendBalance(resultsArray.length, searchQuery);
             }
             
             // Очищаем контейнер
