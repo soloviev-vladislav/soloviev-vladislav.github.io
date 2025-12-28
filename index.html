@@ -61,7 +61,6 @@
         </header>
 
         <main class="max-w-4xl mx-auto">
-            <!-- Остальная часть формы и контейнеров без изменений -->
             <div class="bg-white rounded-xl shadow-md p-6 mb-10">
                 <h2 class="text-xl font-semibold text-gray-800 mb-6">Параметры поиска</h2>
                 
@@ -298,7 +297,7 @@
             });
         });
 
-        // ФУНКЦИИ АВТОКОМПЛИТА (без изменений)
+        // ФУНКЦИИ АВТОКОМПЛИТА
         function setupAutocomplete(inputId, dropdownId, tagsContainerId, hiddenInputId, apiEndpoint, dataMapper) {
             const input = document.getElementById(inputId);
             const dropdown = document.getElementById(dropdownId);
@@ -421,7 +420,7 @@
             industries: (data) => data.map(industry => ({ id: industry.id, text: industry.name }))
         };
         
-        // ОСНОВНЫЕ ФУНКЦИИ (без изменений)
+        // ОСНОВНЫЕ ФУНКЦИИ
         function showLoading() {
             document.getElementById('loadingState').classList.remove('hidden');
             document.getElementById('errorState').classList.add('hidden');
@@ -443,7 +442,7 @@
             document.getElementById('errorMessage').textContent = message;
         }
         
-        // ОТПРАВКА ФОРМЫ (БЕЗ ПРОКСИ!)
+        // ОТПРАВКА ФОРМЫ
         async function submitForm(formData) {
             try {
                 console.log('Отправка данных:', formData);
@@ -471,7 +470,6 @@
                 const targetUrl = N8N_WEBHOOK_URL + '?' + params.toString();
                 console.log('URL запроса:', targetUrl);
                 
-                // ПРОСТОЙ FETCH БЕЗ ПРОКСИ
                 const response = await fetch(targetUrl, {
                     method: 'GET',
                     headers: { 'Accept': 'application/json' }
