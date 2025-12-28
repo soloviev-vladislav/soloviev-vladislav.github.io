@@ -289,12 +289,16 @@
             saveSession();
         }
         
-        // ФУНКЦИЯ ДЛЯ СПИСАНИЯ БАЛАНСА
+        // ФУНКЦИЯ ДЛЯ СПИСАНИЯ БАЛАНСА (ИСПРАВЛЕННАЯ)
         async function spendBalance(amount, searchQuery) {
             try {
+                console.log('=== НАЧАЛО СПИСАНИЯ БАЛАНСА ===');
+                console.log('Текущая сессия:', currentSession);
+                console.log('Параметры списания:', { amount, searchQuery });
+                
                 // Проверяем, не списывали ли уже за этот поиск
                 if (currentSession.lastSpendId) {
-                    console.log('Баланс уже был списан за этот поиск');
+                    console.log('Баланс уже был списан за этот поиск, ID:', currentSession.lastSpendId);
                     return false;
                 }
                 
@@ -309,8 +313,10 @@
                     search_query: searchQuery
                 };
                 
-                console.log('Отправка запроса на списание:', spendData);
+                console.log('Отправка данных на списание:', spendData);
+                console.log('URL для списания:', SPEND_API_URL);
                 
+                // Отправляем запрос
                 const response = await fetch(SPEND_API_URL, {
                     method: 'POST',
                     headers: {
@@ -320,12 +326,24 @@
                     body: JSON.stringify(spendData)
                 });
                 
+                console.log('Статус ответа от spend API:', response.status);
+                console.log('Статус текста:', response.statusText);
+                
                 if (!response.ok) {
-                    throw new Error(`Ошибка списания баланса: ${response.status}`);
+                    throw new Error(`Ошибка списания баланса: ${response.status} ${response.statusText}`);
                 }
                 
-                const data = await response.json();
-                console.log('Ответ от сервера списания:', data);
+                const responseText = await response.text();
+                console.log('Текст ответа:', responseText);
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                    console.log('Парсинг JSON успешен:', data);
+                } catch (parseError) {
+                    console.warn('Ответ не в формате JSON:', responseText);
+                    data = { success: true, message: 'Баланс списан' };
+                }
                 
                 // Сохраняем идентификатор списания для предотвращения повторного списания
                 currentSession.lastSpendId = `spend_${Date.now()}_${amount}`;
@@ -333,13 +351,24 @@
                 
                 // Обновляем баланс в интерфейсе если сервер вернул новый баланс
                 if (data.new_balance !== undefined) {
+                    console.log('Обновление баланса на:', data.new_balance);
                     updateBalance(data.new_balance);
+                } else {
+                    // Если сервер не вернул новый баланс, вычитаем локально
+                    const newBalance = Math.max(0, currentSession.currentBalance - amount);
+                    console.log('Вычитаем локально, новый баланс:', newBalance);
+                    updateBalance(newBalance);
                 }
                 
+                console.log('=== УСПЕШНОЕ СПИСАНИЕ БАЛАНСА ===');
                 return true;
                 
             } catch (error) {
                 console.error('Ошибка при списании баланса:', error);
+                console.error('Подробности ошибки:', {
+                    message: error.message,
+                    stack: error.stack
+                });
                 return false;
             }
         }
@@ -416,13 +445,17 @@
                 
                 // Загружаем баланс
                 try {
+                    console.log('Загрузка баланса для ID:', params.id);
                     const response = await fetch(`${BALANCE_API_URL}?id=${params.id}`);
                     
+                    console.log('Ответ от баланса API:', response.status);
+                    
                     if (!response.ok) {
-                        throw new Error(`Ошибка загрузки баланса: ${response.status}`);
+                        throw new Error(`Ошибка загрузки баланса: ${response.status} ${response.statusText}`);
                     }
                     
                     const data = await response.json();
+                    console.log('Данные баланса:', data);
                     
                     if (data.balance !== undefined) {
                         updateBalance(data.balance);
@@ -444,6 +477,8 @@
         
         // ИНИЦИАЛИЗАЦИЯ
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('Страница загружена, начальная сессия:', currentSession);
+            
             // Загружаем сессию
             loadSession();
             
@@ -649,7 +684,8 @@
         // ОТПРАВКА ФОРМЫ С ID ПОЛЬЗОВАТЕЛЯ
         async function submitForm(formData) {
             try {
-                console.log('Отправка данных:', formData);
+                console.log('=== НАЧАЛО ОТПРАВКИ ФОРМЫ ===');
+                console.log('Данные формы:', formData);
                 
                 const params = new URLSearchParams();
                 params.append('vacancy', formData.vacancy);
@@ -658,6 +694,7 @@
                 // ДОБАВЛЯЕМ ID ПОЛЬЗОВАТЕЛЯ ЕСЛИ ЕСТЬ
                 if (currentSession.userId) {
                     params.append('user_id', currentSession.userId);
+                    console.log('Добавлен user_id:', currentSession.userId);
                 }
                 
                 if (formData.professional_roles.length > 0) {
@@ -677,21 +714,21 @@
                 }
                 
                 const targetUrl = N8N_WEBHOOK_URL + '?' + params.toString();
-                console.log('URL запроса:', targetUrl);
+                console.log('URL запроса поиска:', targetUrl);
                 
                 const response = await fetch(targetUrl, {
                     method: 'GET',
                     headers: { 'Accept': 'application/json' }
                 });
                 
-                console.log('Статус ответа:', response.status);
+                console.log('Статус ответа от поиска:', response.status);
                 
                 if (!response.ok) {
-                    throw new Error(`Ошибка сервера: ${response.status}`);
+                    throw new Error(`Ошибка сервера: ${response.status} ${response.statusText}`);
                 }
                 
                 const data = await response.json();
-                console.log('Получены данные:', data);
+                console.log('Получены данные поиска:', data);
                 
                 // Сохраняем в историю
                 addToHistory(formData, data);
@@ -699,21 +736,23 @@
                 // Отображаем результаты
                 displayResults(data);
                 
+                console.log('=== УСПЕШНОЕ ВЫПОЛНЕНИЕ ПОИСКА ===');
+                
             } catch (error) {
-                console.error('Ошибка:', error);
+                console.error('Ошибка при поиске:', error);
                 showError(error.message);
             }
         }
         
         function displayResults(results, fromHistory = false) {
+            console.log('=== НАЧАЛО ОТОБРАЖЕНИЯ РЕЗУЛЬТАТОВ ===');
+            console.log('fromHistory:', fromHistory);
+            console.log('Результаты:', results);
+            
             hideLoading();
             
             const container = document.getElementById('resultsContainer');
             const resultsCount = document.getElementById('resultsCount');
-            
-            console.log('Что пришло в displayResults:', results);
-            console.log('Тип:', typeof results);
-            console.log('Is array?', Array.isArray(results));
             
             // Обрабатываем новый формат
             let resultsArray = [];
@@ -739,7 +778,7 @@
                 resultsArray = results.data;
             }
             
-            console.log('Обработанный массив:', resultsArray);
+            console.log('Обработанный массив компаний:', resultsArray);
             console.log('Количество компаний:', resultsArray.length);
             
             // Если нет результатов
@@ -757,11 +796,19 @@
             
             // СПИСЫВАЕМ БАЛАНС ТОЛЬКО ЕСЛИ НЕ ИЗ ИСТОРИИ
             if (!fromHistory && resultsArray.length > 0) {
+                console.log('Начинаем списание баланса...');
+                console.log('Текущий lastSpendId:', currentSession.lastSpendId);
+                
                 // Получаем поисковый запрос из формы
                 const searchQuery = document.getElementById('vacancy').value.trim();
+                console.log('Поисковый запрос для списания:', searchQuery);
                 
                 // Списываем баланс (количество найденных компаний)
-                spendBalance(resultsArray.length, searchQuery);
+                setTimeout(() => {
+                    spendBalance(resultsArray.length, searchQuery);
+                }, 100);
+            } else if (fromHistory) {
+                console.log('Пропускаем списание - результаты из истории');
             }
             
             // Очищаем контейнер
@@ -769,8 +816,6 @@
             
             // Создаем карточки
             resultsArray.forEach((company, index) => {
-                console.log(`Создаю карточку ${index + 1}:`, company);
-                
                 const card = document.createElement('div');
                 card.className = 'company-card bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300';
                 
@@ -835,6 +880,8 @@
                     block: 'nearest' 
                 });
             }
+            
+            console.log('=== ЗАВЕРШЕНО ОТОБРАЖЕНИЕ РЕЗУЛЬТАТОВ ===');
         }
     </script>
 </body>
