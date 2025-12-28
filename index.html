@@ -36,18 +36,6 @@
             font-weight: 600;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .history-badge {
-            display: inline-flex;
-            align-items: center;
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 9999px;
-            font-weight: 600;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            cursor: pointer;
-            margin-left: 0.5rem;
-        }
         .insufficient-balance {
             animation: pulse 2s infinite;
         }
@@ -62,18 +50,10 @@
     <div class="container mx-auto px-4 py-8">
         <!-- Блок с именем пользователя и балансом -->
         <div class="flex justify-between items-center mb-6">
-            <div class="flex items-center">
-                <!-- Имя пользователя слева -->
-                <div class="user-badge">
-                    <i class="fas fa-user-circle mr-2"></i>
-                    <span id="username">Загрузка...</span>
-                </div>
-                
-                <!-- Бейдж истории поиска -->
-                <div id="historyBadge" class="history-badge hidden">
-                    <i class="fas fa-history mr-2"></i>
-                    <span id="historyCount">0</span>
-                </div>
+            <!-- Имя пользователя слева -->
+            <div class="user-badge">
+                <i class="fas fa-user-circle mr-2"></i>
+                <span id="username">Загрузка...</span>
             </div>
             
             <!-- Баланс справа -->
@@ -147,7 +127,7 @@
                         <input type="hidden" id="industries" name="industries">
                     </div>
                     
-                    <div class="mb-4">
+                    <div class="mb-8">
                         <label for="limit" class="block text-gray-700 font-medium mb-2">Ограничить выдачу</label>
                         <input type="number" id="limit" name="limit" placeholder="Например, 50" min="1" max="2000"
                             class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition"
@@ -169,13 +149,6 @@
                             class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-lg transition duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
                             <i class="fas fa-search mr-2"></i> Найти компании
                         </button>
-                        <div id="balanceError" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                            <div class="flex items-center justify-center">
-                                <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
-                                <p class="text-red-700 font-medium">Недостаточно средств для выполнения поиска!</p>
-                            </div>
-                            <p class="text-red-600 text-center mt-2">Пополните баланс, чтобы продолжить работу.</p>
-                        </div>
                     </div>
                 </form>
             </div>
@@ -183,12 +156,7 @@
             <div class="mb-10">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-2xl font-bold text-gray-800">Результаты поиска</h2>
-                    <div class="flex items-center gap-4">
-                        <span id="resultsCount" class="text-gray-600 hidden">Найдено: <span class="font-semibold">0</span></span>
-                        <button id="clearHistoryBtn" class="hidden text-sm text-gray-500 hover:text-gray-700">
-                            <i class="fas fa-trash-alt mr-1"></i> Очистить историю
-                        </button>
-                    </div>
+                    <span id="resultsCount" class="text-gray-600 hidden">Найдено: <span class="font-semibold">0</span></span>
                 </div>
                 
                 <div id="loadingState" class="hidden text-center py-10">
@@ -269,9 +237,6 @@
                         ...parsed
                     };
                     
-                    // Показываем историю если есть
-                    updateHistoryBadge();
-                    
                     // Восстанавливаем последние результаты
                     if (currentSession.lastResults) {
                         displayResults(currentSession.lastResults, true);
@@ -300,7 +265,6 @@
                 currentBalance: 0
             };
             localStorage.removeItem(STORAGE_KEY);
-            updateHistoryBadge();
         }
         
         function addToHistory(searchParams, results) {
@@ -320,22 +284,6 @@
             currentSession.lastResults = results;
             
             saveSession();
-            updateHistoryBadge();
-        }
-        
-        function updateHistoryBadge() {
-            const historyBadge = document.getElementById('historyBadge');
-            const historyCount = document.getElementById('historyCount');
-            const clearHistoryBtn = document.getElementById('clearHistoryBtn');
-            
-            if (currentSession.searchHistory.length > 0) {
-                historyBadge.classList.remove('hidden');
-                historyCount.textContent = currentSession.searchHistory.length;
-                clearHistoryBtn.classList.remove('hidden');
-            } else {
-                historyBadge.classList.add('hidden');
-                clearHistoryBtn.classList.add('hidden');
-            }
         }
         
         // ФУНКЦИЯ ОБНОВЛЕНИЯ ИМЕНИ ПОЛЬЗОВАТЕЛЯ
@@ -365,7 +313,6 @@
             const limitInput = document.getElementById('limit');
             const submitBtn = document.getElementById('submitBtn');
             const limitWarning = document.getElementById('limitWarning');
-            const balanceError = document.getElementById('balanceError');
             const currentBalanceDisplay = document.getElementById('currentBalanceDisplay');
             const requestedLimit = document.getElementById('requestedLimit');
             
@@ -380,7 +327,6 @@
                 // Недостаточно средств
                 submitBtn.disabled = true;
                 limitWarning.classList.remove('hidden');
-                balanceError.classList.remove('hidden');
                 
                 // Добавляем анимацию к бейджу баланса
                 document.querySelector('.balance-badge').classList.add('insufficient-balance');
@@ -390,7 +336,6 @@
                 // Средств достаточно
                 submitBtn.disabled = false;
                 limitWarning.classList.add('hidden');
-                balanceError.classList.add('hidden');
                 
                 // Убираем анимацию
                 document.querySelector('.balance-badge').classList.remove('insufficient-balance');
@@ -452,23 +397,6 @@
                 checkBalance();
             });
             
-            // Обработчик клика по бейджу истории
-            document.getElementById('historyBadge').addEventListener('click', function() {
-                if (currentSession.searchHistory.length > 0) {
-                    alert(`История поиска (последние ${currentSession.searchHistory.length} запросов):\n\n` +
-                        currentSession.searchHistory.map((item, i) => 
-                            `${i+1}. ${new Date(item.timestamp).toLocaleString()} - ${item.resultsCount} компаний`
-                        ).join('\n'));
-                }
-            });
-            
-            // Обработчик очистки истории
-            document.getElementById('clearHistoryBtn').addEventListener('click', function() {
-                if (confirm('Очистить всю историю поиска?')) {
-                    clearSession();
-                }
-            });
-            
             // Автокомплиты
             setupAutocomplete('professional_roles_input', 'professional_roles_dropdown', 
                 'professional_roles_tags', 'professional_roles', 'professional_roles', dataMappers.professional_roles);
@@ -483,16 +411,6 @@
                 
                 // Проверяем баланс перед отправкой
                 if (!checkBalance()) {
-                    // Показываем уведомление
-                    const balanceError = document.getElementById('balanceError');
-                    balanceError.classList.remove('hidden');
-                    
-                    // Анимируем сообщение об ошибке
-                    balanceError.style.animation = 'none';
-                    setTimeout(() => {
-                        balanceError.style.animation = 'pulse 0.5s';
-                    }, 10);
-                    
                     return;
                 }
                 
